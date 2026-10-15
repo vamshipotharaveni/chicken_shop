@@ -35,7 +35,7 @@ app.use('/uploads', express.static(uploadsDir));
 let dbConnected = false;
 const mongoURI = process.env.MONGODB_URI;
 
-if (mongoURI && !mongoURI.includes('CLUSTER_URL')) {
+if (mongoURI && !mongoURI.includes('CLUSTER_URL') && !mongoURI.includes('<db_password>')) {
   mongoose.connect(mongoURI)
     .then(() => {
       dbConnected = true;
@@ -79,7 +79,7 @@ app.get('*', (req, res) => {
 });
 
 // ── Start Server ─────────────────────────────────
-app.listen(PORT, () => {
+if (!process.env.VERCEL) app.listen(PORT, () => {
   console.log('');
   console.log('🐔 ═══════════════════════════════════════════');
   console.log('   JYOTHI CHICKEN CENTER - Server Running');

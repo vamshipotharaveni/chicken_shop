@@ -28,7 +28,7 @@ async function seedProducts() {
 if (require.main === module) {
   (async () => {
     const mongoURI = process.env.MONGODB_URI;
-    if (!mongoURI || mongoURI.includes('CLUSTER_URL')) {
+    if (!mongoURI || mongoURI.includes('CLUSTER_URL') || mongoURI.includes('<db_password>')) {
       console.error('❌ Error: Valid MONGODB_URI is not configured in .env');
       console.log('   Please configure a valid MongoDB connection string before running seed.js');
       process.exit(1);

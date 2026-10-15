@@ -18,7 +18,7 @@ let localSettings = {
   shopOpen: true,
   shopPhone: '917993996127',
   orderPhone: process.env.WHATSAPP_NUMBER || '919160726658',
-  shopAddress: 'Main Road, Your City',
+  shopAddress: process.env.SHOP_ADDRESS || 'Near canal, Saidhapur Road, Huzurabad, Karimnagar, Telangana',
   shopMessage: ''
 };
 
@@ -27,7 +27,12 @@ router.get('/settings', async (req, res) => {
   try {
     if (isDbConnected()) {
       let settings = await Settings.findOne();
-      if (settings) return res.json(settings);
+      if (settings) {
+        if (!settings.shopAddress || settings.shopAddress === 'Main Road' || settings.shopAddress === 'Main Road, Your City') {
+          settings.shopAddress = process.env.SHOP_ADDRESS || 'Near canal, Saidhapur Road, Huzurabad, Karimnagar, Telangana';
+        }
+        return res.json(settings);
+      }
     }
     res.json(localSettings);
   } catch (e) {

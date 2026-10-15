@@ -10,7 +10,7 @@ let shopSettings = {
   shopOpen: true,
   shopPhone: '917993996127',
   orderPhone: '919160726658',
-  shopAddress: 'Main Road'
+  shopAddress: 'Near canal, Saidhapur Road, Huzurabad, Karimnagar, Telangana'
 };
 let adminToken = sessionStorage.getItem('jc_admin_token') || '';
 let currentCategory = 'all';
@@ -21,6 +21,8 @@ let allOffers = [];
 
 const DEFAULT_DISPLAY_PHONE = '7993996127';
 const DEFAULT_ORDER_PHONE = '9160726658';
+const DEFAULT_SHOP_ADDRESS = 'Near canal, Saidhapur Road, Huzurabad, Karimnagar, Telangana';
+const DEFAULT_SHOP_MAP_URL = 'https://www.google.com/maps?q=18.2049723,79.3888069';
 
 const OFFER_TEMPLATES = {
   dussehra: {
@@ -70,7 +72,7 @@ let currentCoords = null; // { lat, lng }
 // ── Translations Dictionary ───────────────────────────
 const TRANSLATIONS = {
   en: {
-    brand_title: '👑 Jyothi Fresh Chiken',
+    brand_title: '👑 Jyothi Fresh Chicken',
     brand_subtitle: 'Farm Fresh • Daily Quality Delivery • Hygienic Custom Cuts',
     search_placeholder: 'Search chicken products...',
     hero_badge: '🍗 100% Farm Fresh Everyday',
@@ -109,7 +111,7 @@ const TRANSLATIONS = {
     items_in_cart: '{count} {items} in Cart',
     item_singular: 'Item',
     item_plural: 'Items',
-    about_title: 'Why Choose Jyothi Fresh Chiken?',
+    about_title: 'Why Choose Jyothi Fresh Chicken?',
     about_subtitle: 'Pure freshness, hygienic processing, and trusted quality in every cut.',
     trust_1_title: '100% Farm Fresh',
     trust_1_desc: 'Sourced daily from certified local farms. Zero frozen, zero preservatives.',
@@ -124,8 +126,8 @@ const TRANSLATIONS = {
     bulk_subtitle: 'Order fresh chicken in bulk at exclusive discounted rates with complimentary delivery.',
     bulk_btn: 'Order Bulk on WhatsApp',
     loading_text: 'Loading fresh products...',
-    success_title: 'WhatsApp opened',
-    success_desc: 'Opening WhatsApp is not a confirmed order. Send the message to the shop to complete it.'
+    success_title: '',
+    success_desc: ''
   },
   te: {
     brand_title: '👑 జ్యోతి ఫ్రెష్ చికెన్',
@@ -182,8 +184,8 @@ const TRANSLATIONS = {
     bulk_subtitle: 'ఫంక్షన్లు మరియు పార్టీల కొరకు చికెన్ హోల్‌సేల్ ధరలకే ఆర్డర్ చేయండి.',
     bulk_btn: 'వాట్సాప్‌లో బల్క్ ఆర్డర్ చేయండి',
     loading_text: 'ఉత్పత్తులు లోడ్ అవుతున్నాయి...',
-    success_title: 'వాట్సాప్ తెరవబడింది',
-    success_desc: 'వాట్సాప్ తెరవడం అంటే ఆర్డర్ కన్‌ఫర్మ్ కాదు. సందేశం పంపితేనే ఆర్డర్ పూర్తవుతుంది.'
+    success_title: '',
+    success_desc: ''
   }
 };
 
@@ -223,7 +225,7 @@ const shopStatusText = $('#shop-status-text');
 const adminPanel = $('#admin-panel');
 const adminLogin = $('#admin-login');
 const adminContent = $('#admin-content');
-const bookingModal = $('#booking-modal');
+const bookingModal = null;
 
 // Floating Cart Elements
 const floatingCartBar = $('#floating-cart-bar');
@@ -511,7 +513,12 @@ function updateShopStatus() {
   }
   if (shopSettings.shopAddress) {
     const footerAddr = $('#footer-address');
-    if (footerAddr) footerAddr.textContent = shopSettings.shopAddress;
+    if (footerAddr) {
+      footerAddr.textContent = shopSettings.shopAddress;
+      footerAddr.href = shopSettings.shopAddress === DEFAULT_SHOP_ADDRESS
+        ? DEFAULT_SHOP_MAP_URL
+        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shopSettings.shopAddress)}`;
+    }
   }
 }
 
@@ -565,7 +572,7 @@ function updateContactUI() {
     el.setAttribute('href', `https://wa.me/${wa}?text=${encodeURIComponent(text)}`);
   });
   const footerBrand = $('#footer-brand-title');
-  if (footerBrand) footerBrand.textContent = currentLang === 'te' ? '👑 జ్యోతి ఫ్రెష్ చికెన్' : '👑 Jyothi Fresh Chiken';
+  if (footerBrand) footerBrand.textContent = currentLang === 'te' ? '👑 జ్యోతి ఫ్రెష్ చికెన్' : '👑 Jyothi Fresh Chicken';
 }
 
 function readFileAsDataURL(file) {
@@ -881,8 +888,8 @@ function updateCartUI() {
   // Cart total text
   cartTotalAmount.textContent = '₹' + total.toFixed(0);
 
-  // Enable/disable WhatsApp button
-  whatsappBtn.disabled = count === 0;
+  // Enable WhatsApp only when cart has items AND delivery location is filled
+  whatsappBtn.disabled = count === 0 || !hasRequiredDeliveryLocation();
 
   // Floating Bottom Cart Bar Updates (User Requirement)
   if (floatingCartBar) {
@@ -981,6 +988,7 @@ function detectLocation() {
 
       btn.innerHTML = `<i class="fas fa-location-crosshairs"></i> <span>${t.detect_btn}</span>`;
       btn.disabled = false;
+      updateCartUI();
     },
     (err) => {
       showToast(currentLang === 'te' ? 'లొకేషన్ గుర్తించలేకపోయాము. దయచేసి టైప్ చేయండి.' : 'Could not detect GPS location. Please enter manually.', 'error');
@@ -1092,32 +1100,18 @@ async function placeOrder() {
     // offline or backend fallback handled
   }
 
-  // Open WhatsApp — this is only a handoff, not a confirmed order
+  // Open WhatsApp only — clicking this is NOT an order confirmation
   const whatsappNumber = toWaNumber(getOrderPhone());
   const waURL = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`;
   window.open(waURL, '_blank');
-
-  showToast(
-    currentLang === 'te'
-      ? 'వాట్సాప్ తెరవబడింది. సందేశం పంపితేనే ఆర్డర్ పూర్తవుతుంది.'
-      : 'WhatsApp opened. Sending the chat completes the order — this is not a confirmed booking.',
-    'info'
-  );
 }
 
-// ── Booking Modal ─────────────────────────────────────
-function showBookingModal() {
-  const t = TRANSLATIONS[currentLang] || TRANSLATIONS.en;
-  const orderId = 'JCC-' + Date.now().toString(36).toUpperCase();
-  $('#modal-order-id').textContent = 'Order Reference ID: ' + orderId;
-  $('#success-modal-title').textContent = t.success_title;
-  $('#success-modal-desc').textContent = t.success_desc;
-  bookingModal.classList.add('active');
+function hasRequiredDeliveryLocation() {
+  const addressEl = $('#customer-address');
+  return !!(addressEl && addressEl.value.trim());
 }
 
-function hideBookingModal() {
-  bookingModal.classList.remove('active');
-}
+function hideBookingModal() {}
 
 // ── Toast Notifications ───────────────────────────────
 function showToast(message, type = 'info') {
@@ -1546,6 +1540,7 @@ function loadAdminSettings() {
     toggle.classList.remove('active');
   }
   $('#settings-phone').value = shopSettings.shopPhone || '';
+  if ($('#settings-order-phone')) $('#settings-order-phone').value = shopSettings.orderPhone || '';
   $('#settings-address').value = shopSettings.shopAddress || '';
   $('#settings-message').value = shopSettings.shopMessage || '';
 }
@@ -1553,6 +1548,7 @@ function loadAdminSettings() {
 async function saveSettings() {
   const shopOpen = $('#shop-toggle').classList.contains('active');
   const shopPhone = $('#settings-phone').value.trim();
+  const orderPhone = ($('#settings-order-phone') && $('#settings-order-phone').value.trim()) || '';
   const shopAddress = $('#settings-address').value.trim();
   const shopMessage = $('#settings-message').value.trim();
 
@@ -1563,11 +1559,12 @@ async function saveSettings() {
         'Content-Type': 'application/json',
         'Authorization': adminToken
       },
-      body: JSON.stringify({ shopOpen, shopPhone, shopAddress, shopMessage })
+      body: JSON.stringify({ shopOpen, shopPhone, orderPhone, shopAddress, shopMessage })
     });
-    shopSettings = { ...shopSettings, shopOpen, shopPhone, shopAddress, shopMessage };
+    shopSettings = { ...shopSettings, shopOpen, shopPhone, orderPhone, shopAddress, shopMessage };
     updateShopStatus();
     updateAnnouncement();
+    updateContactUI();
     showToast('Settings saved successfully!', 'success');
   } catch (e) {
     showToast('Failed to save settings', 'error');
@@ -1626,13 +1623,21 @@ async function addOffer(e) {
   const textTelugu = $('#offer-text-te-input').value.trim();
   const emoji = $('#offer-emoji-input').value.trim() || '🔥';
   const displayOrder = parseInt($('#offer-order-input').value) || 0;
+  const templateEl = document.querySelector('input[name="offer-template"]:checked');
+  const template = templateEl ? templateEl.value : 'dussehra';
+  const discount = ($('#offer-discount-input') && $('#offer-discount-input').value.trim()) || '';
+  const description = ($('#offer-desc-input') && $('#offer-desc-input').value.trim()) || '';
+  const descriptionTelugu = ($('#offer-desc-te-input') && $('#offer-desc-te-input').value.trim()) || '';
 
   if (!text) {
     showToast('Please enter offer text', 'error');
     return;
   }
 
-  const offerData = { text, textTelugu, emoji, displayOrder, active: true };
+  const offerData = {
+    text, textTelugu, emoji, displayOrder, template, discount,
+    description, descriptionTelugu, active: true
+  };
 
   try {
     const res = await fetch(API_BASE + '/api/offers', {
@@ -1937,6 +1942,10 @@ function bindEvents() {
 
   // Location detection
   $('#detect-location-btn').addEventListener('click', detectLocation);
+  const addressInput = $('#customer-address');
+  if (addressInput) {
+    addressInput.addEventListener('input', updateCartUI);
+  }
 
   // Search input events
   const searchInput = $('#search-input');
@@ -2013,12 +2022,6 @@ function bindEvents() {
   // Save admin settings
   const saveBtn = $('#save-settings-btn');
   if (saveBtn) saveBtn.addEventListener('click', saveSettings);
-
-  // Modals
-  $('#modal-close-btn').addEventListener('click', hideBookingModal);
-  bookingModal.addEventListener('click', (e) => {
-    if (e.target === bookingModal) hideBookingModal();
-  });
 
   const editCloseBtn = $('#edit-modal-close');
   const editModal = $('#edit-product-modal');
