@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jyothi Fresh Chiken | Fresh &amp; Hygienic Chicken Delivery</title>
+  <meta name="description" content="Jyothi Fresh Chiken – Order farm-fresh, hygienic chicken online. Whole chicken, boneless, wings, drumsticks, liver &amp; keema. Fast WhatsApp delivery.">
+  <meta name="theme-color" content="#E11D48">
+  <link rel="icon" type="image/jpeg" href="images/logo.jpg">
+  <link rel="apple-touch-icon" href="images/logo.jpg">
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Performance: Preconnect to font origins early -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+
+  <!-- Critical CSS first -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Fonts: load with display=swap for instant text rendering -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=Noto+Sans+Telugu:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800;900&family=Noto+Sans+Telugu:wght@400;500;600;700&display=swap"></noscript>
+
+  <!-- FontAwesome: load async to not block render -->
+  <link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
+</head>
+<body>
+
+  <!-- ═══ Loading Overlay ═══ -->
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <div class="loading-text" id="loading-text">Loading fresh products...</div>
+  </div>
+
+  <!-- ═══ Header / Navbar (Sticky & Floats on Scroll) ═══ -->
+  <header class="header" id="main-header">
+    <div class="header-inner">
+      <!-- RR Logo ONLY (No Name on Navbar as requested) -->
+      <a href="#" class="nav-brand-logo" aria-label="Jyothi Fresh Chiken" title="Jyothi Fresh Chiken">
+        <div class="rr-logo-wrap">
+          <img src="images/logo.jpg" alt="Jyothi Fresh Chiken Logo" class="rr-nav-logo" width="64" height="64">
+        </div>
+      </a>
+
+      <!-- Desktop Search Bar -->
+      <div class="search-bar">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="search-input" class="search-input" placeholder="Search chicken products..." autocomplete="off">
+      </div>
+
+      <!-- Nav Actions (Compact on mobile, perfectly fitted) -->
+      <div class="nav-actions">
+        <!-- Language Switcher Toggle -->
+        <button id="lang-toggle-btn" class="nav-btn lang-btn" aria-label="Switch Language" title="Change Language">
+          <i class="fas fa-language"></i>
+          <span id="lang-btn-label" class="btn-text">తెలుగు</span>
+        </button>
+
+        <!-- Theme Toggle (Light / Dark) -->
+        <button id="theme-toggle-btn" class="nav-btn theme-btn" aria-label="Toggle Theme" title="Switch Theme">
+          <i id="theme-icon" class="fas fa-moon"></i>
+        </button>
+
+        <!-- Cart Trigger Button -->
+        <button id="cart-btn" class="nav-btn cart-nav-btn" aria-label="Open cart">
+          <i class="fas fa-shopping-cart"></i>
+          <span id="cart-count" class="cart-badge hidden">0</span>
+        </button>
+
+        <!-- Admin Dashboard Button -->
+        <button id="admin-toggle" class="nav-btn admin-nav-btn" aria-label="Admin panel" title="Admin Portal">
+          <i class="fas fa-cog"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+  <div id="header-spacer" aria-hidden="true"></div>
+
+  <!-- Mobile Search Bar (Sleek Glassy Fitting) -->
+  <div class="search-bar-mobile">
+    <div class="search-bar" style="display:block;max-width:100%;">
+      <i class="fas fa-search search-icon"></i>
+      <input type="text" id="search-input-mobile" class="search-input" placeholder="Search chicken products..." autocomplete="off">
+    </div>
+  </div>
+
+  <!-- ═══ Announcement Bar ═══ -->
+  <div id="announcement-bar" class="announcement-bar" style="display:none;">
+    <div class="announcement-inner">
+      <i class="fas fa-bullhorn"></i>
+      <span id="announcement-text"></span>
+    </div>
+  </div>
+
+  <!-- ═══ BigBasket Style Floating Top Offers (At Beginning of Page) ═══ -->
+  <section class="bb-offers-section" id="offers-section">
+    <div class="bb-offers-header">
+      <div class="bb-offers-title-wrap">
+        <span class="bb-offers-badge">⚡ BIG SAVINGS</span>
+        <h2 class="bb-offers-title" id="offers-heading"><i class="fas fa-fire-flame-curved"></i> Daily Deals &amp; Offers</h2>
+      </div>
+      <div class="bb-offers-nav-dots" id="offers-dots">
+        <span class="bb-dot active" data-index="0"></span>
+        <span class="bb-dot" data-index="1"></span>
+        <span class="bb-dot" data-index="2"></span>
+        <span class="bb-dot" data-index="3"></span>
+      </div>
+    </div>
+    <div class="bb-offers-track" id="offers-track">
+      <!-- Offer cards are rendered from admin templates -->
+    </div>
+  </section>
+
+  <!-- ═══ Today's Rates Ticker ═══ -->
+  <section class="rates-ticker">
+    <div class="rates-ticker-label" id="ticker-label">
+      <i class="fas fa-tag"></i> Today's Rates
+    </div>
+    <div class="rates-ticker-track">
+      <div class="rates-ticker-content" id="rates-ticker-content">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Hero Section (Compact & Sleek) ═══ -->
+  <section class="hero-section">
+    <canvas id="hero-canvas" class="hero-canvas"></canvas>
+    <div class="hero-content">
+      <div class="hero-badge" id="hero-badge">🍗 100% Farm Fresh Everyday</div>
+      <h1 id="hero-title">Premium Chicken Delivered Fresh Daily</h1>
+      <p class="hero-tagline" id="hero-tagline">
+        Hygienic Cutting &bull; Best Local Rates &bull; Delivered within the hour
+      </p>
+      <div id="shop-status" class="shop-status open">
+        <span class="status-dot"></span>
+        <span id="shop-status-text">OPEN NOW</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Category Filter Bar ═══ -->
+  <nav class="category-bar">
+    <div class="category-pills" id="category-pills-container">
+      <button class="category-pill active" data-category="all">🍗 All</button>
+      <button class="category-pill" data-category="whole">🐓 Whole</button>
+      <button class="category-pill" data-category="skinless">Skinless</button>
+      <button class="category-pill" data-category="boneless">🦴 Boneless</button>
+      <button class="category-pill" data-category="currycut">🍛 Curry Cut</button>
+      <button class="category-pill" data-category="wings">🍗 Wings</button>
+      <button class="category-pill" data-category="legs">🦵 Legs</button>
+      <button class="category-pill" data-category="liver">Liver</button>
+      <button class="category-pill" data-category="keema">Keema</button>
+      <button class="category-pill" data-category="gizzard">Gizzard</button>
+      <button class="category-pill" data-category="breast">Breast</button>
+      <button class="category-pill" data-category="heart">Heart</button>
+      <button class="category-pill" data-category="feet">Feet</button>
+    </div>
+  </nav>
+
+  <!-- ═══ Products Section ═══ -->
+  <main class="products-section">
+    <div class="section-header">
+      <h2 class="section-title" id="products-section-title"><i class="fas fa-drumstick-bite"></i> Our Fresh Products</h2>
+      <span class="products-count-badge" id="products-count-badge">12 Items Available</span>
+    </div>
+    <div id="products-grid" class="products-grid">
+      <!-- Product cards rendered dynamically by JS -->
+    </div>
+  </main>
+
+  <!-- ═══ Why Choose Us / Trust Section ═══ -->
+  <section class="about-section">
+    <div class="about-inner">
+      <h2 class="about-title" id="about-title">Why Choose Jyothi Fresh Chiken?</h2>
+      <p class="about-subtitle" id="about-subtitle">Pure freshness, hygienic processing, and trusted quality in every cut.</p>
+      <div class="quality-grid">
+        <div class="quality-card">
+          <div class="quality-icon">🌿</div>
+          <h3 id="trust-1-title">100% Farm Fresh</h3>
+          <p id="trust-1-desc">Sourced daily from certified local farms. Zero frozen, zero preservatives, 100% pure taste.</p>
+        </div>
+        <div class="quality-card">
+          <div class="quality-icon">🔪</div>
+          <h3 id="trust-2-title">Custom Cuts</h3>
+          <p id="trust-2-desc">Expert butcher cutting according to your preferences – Curry cut, Biryani cut, Skinless, or Boneless.</p>
+        </div>
+        <div class="quality-card">
+          <div class="quality-icon">🧼</div>
+          <h3 id="trust-3-title">Strict Hygiene</h3>
+          <p id="trust-3-desc">Thoroughly washed, pre-cleaned, and packed in food-grade sanitised containers.</p>
+        </div>
+        <div class="quality-card">
+          <div class="quality-icon">🚀</div>
+          <h3 id="trust-4-title">Express Delivery</h3>
+          <p id="trust-4-desc">Order through WhatsApp with live GPS location detection and get doorstep delivery within 45 minutes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Testimonials Section ═══ -->
+  <section class="testimonials-section">
+    <div class="testimonials-inner">
+      <h2 class="testimonials-title" id="reviews-title"><i class="fas fa-star"></i> Customer Reviews</h2>
+      <div class="testimonials-carousel" id="testimonials-carousel">
+        <div class="testimonial-card active">
+          <div class="testimonial-stars">★★★★★</div>
+          <p class="testimonial-text" id="rev-1-text">"Best chicken quality in the area! The meat is exceptionally tender, fresh, and cleanly cut. WhatsApp ordering is super smooth."</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">RS</div>
+            <div>
+              <strong>Ramesh Sharma</strong>
+              <span id="rev-1-role">Regular Customer</span>
+            </div>
+          </div>
+        </div>
+        <div class="testimonial-card">
+          <div class="testimonial-stars">★★★★★</div>
+          <p class="testimonial-text" id="rev-2-text">"The boneless breast and keema are so clean and fresh. Perfect for our weekly fitness diet. Prompt delivery right to our apartment!"</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">PL</div>
+            <div>
+              <strong>Padma Lakshmi</strong>
+              <span id="rev-2-role">Loyal Customer</span>
+            </div>
+          </div>
+        </div>
+        <div class="testimonial-card">
+          <div class="testimonial-stars">★★★★★</div>
+          <p class="testimonial-text" id="rev-3-text">"Family pack deal saved us a lot for our weekend gathering. They cut the biryani pieces exactly as requested. Will order again!"</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">AK</div>
+            <div>
+              <strong>Arjun Kumar</strong>
+              <span id="rev-3-role">Weekend Customer</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-dots" id="testimonial-dots">
+        <span class="dot active" data-index="0"></span>
+        <span class="dot" data-index="1"></span>
+        <span class="dot" data-index="2"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Bulk Order CTA ═══ -->
+  <section class="bulk-order-section">
+    <div class="bulk-order-inner">
+      <div class="bulk-order-content">
+        <h2 id="bulk-title">🎉 Planning a Party, Wedding or Event?</h2>
+        <p id="bulk-subtitle">Order fresh chicken in bulk at exclusive discounted rates with complimentary scheduled delivery.</p>
+        <a id="bulk-order-link" class="js-order-wa bulk-order-btn" href="https://wa.me/919160726658?text=Hi%2C%20I%20want%20to%20place%20a%20bulk%20chicken%20order%20for%20an%20event." target="_blank">
+          <i class="fab fa-whatsapp"></i> <span id="bulk-btn-text">Order Bulk on WhatsApp</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Cart Overlay Backdrop ═══ -->
+  <div id="cart-overlay" class="cart-overlay"></div>
+
+  <!-- ═══ Flawless Scrollable Cart Drawer ═══ -->
+  <aside id="cart-drawer" class="cart-drawer">
+    <!-- Pinned Cart Header -->
+    <div class="cart-header">
+      <h2><i class="fas fa-shopping-cart"></i> <span id="cart-header-title">Your Cart</span> (<span id="cart-header-count">0</span>)</h2>
+      <button id="cart-close-btn" class="cart-close-btn" aria-label="Close cart"><i class="fas fa-times"></i></button>
+    </div>
+
+    <!-- Scrollable Container for Entire Cart Body -->
+    <div class="cart-scroll-content">
+      <div class="cart-body">
+        <div id="cart-items-container">
+          <!-- Cart items rendered by JS -->
+        </div>
+        <div id="cart-empty" class="cart-empty">
+          <div class="cart-empty-icon">🛒</div>
+          <p class="cart-empty-text" id="cart-empty-msg">Your cart is empty.<br>Add some delicious fresh chicken!</p>
+        </div>
+      </div>
+
+      <!-- Cutting Preferences -->
+      <div class="specs-section">
+        <h3 id="specs-heading">🔪 Cutting Preferences</h3>
+        <div class="specs-grid">
+          <label class="spec-checkbox"><input type="checkbox" value="Clean &amp; Cut"><span class="spec-check"><i class="fas fa-check"></i></span> <span class="spec-label" data-en="Clean &amp; Cut" data-te="శుభ్రం &amp; కట్">Clean &amp; Cut</span></label>
+          <label class="spec-checkbox"><input type="checkbox" value="Skinless"><span class="spec-check"><i class="fas fa-check"></i></span> <span class="spec-label" data-en="Skinless" data-te="చర్మం లేకుండా">Skinless</span></label>
+          <label class="spec-checkbox"><input type="checkbox" value="With Skin"><span class="spec-check"><i class="fas fa-check"></i></span> <span class="spec-label" data-en="With Skin" data-te="చర్మంతో">With Skin</span></label>
+          <label class="spec-checkbox"><input type="checkbox" value="Curry Cut"><span class="spec-check"><i class="fas fa-check"></i></span> <span class="spec-label" data-en="Curry Cut" data-te="కర్రీ కట్">Curry Cut</span></label>
+          <label class="spec-checkbox"><input type="checkbox" value="Biryani Cut"><span class="spec-check"><i class="fas fa-check"></i></span> <span class="spec-label" data-en="Biryani Cut" data-te="బిర్యానీ కట్">Biryani Cut</span></label>
+          <label class="spec-checkbox"><input type="checkbox" value="Small Pieces"><span class="spec-check"><i class="fas fa-check"></i></span> <span class="spec-label" data-en="Small Pieces" data-te="చిన్న ముక్కలు">Small Pieces</span></label>
+          <label class="spec-checkbox"><input type="checkbox" value="Large Pieces"><span class="spec-check"><i class="fas fa-check"></i></span> <span class="spec-label" data-en="Large Pieces" data-te="పెద్ద ముక్కలు">Large Pieces</span></label>
+        </div>
+      </div>
+
+      <!-- Special Instructions -->
+      <div class="notes-section">
+        <label for="order-notes" class="field-label" id="notes-label">Special Instructions</label>
+        <textarea id="order-notes" placeholder="Any special instructions? (e.g., extra clean, separate packaging, delivery time...)"></textarea>
+      </div>
+
+      <!-- Delivery Details Form -->
+      <div class="order-form">
+        <h3 id="delivery-heading">📋 Delivery Details</h3>
+        <div class="form-group">
+          <label for="customer-name" id="label-name">Your Full Name</label>
+          <input type="text" id="customer-name" class="form-input" placeholder="Enter your name" required>
+        </div>
+        <div class="form-group">
+          <label for="customer-phone" id="label-phone">Phone Number (WhatsApp)</label>
+          <input type="tel" id="customer-phone" class="form-input" placeholder="e.g., 9876543210" required>
+        </div>
+        <div class="form-group">
+          <label for="customer-address" id="label-address">Delivery Location <span class="required-star">*</span></label>
+          <input type="text" id="customer-address" class="form-input" placeholder="House/Flat No, Landmark, Area, Street" required>
+          <button id="detect-location-btn" class="detect-location-btn" type="button">
+            <i class="fas fa-location-crosshairs"></i> <span id="detect-btn-text">Detect Live GPS Location</span>
+          </button>
+          <div id="location-status-badge" class="location-status-badge" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pinned Cart Footer -->
+    <div class="cart-footer">
+      <div class="cart-total">
+        <span class="cart-total-label" id="cart-total-label">Total Amount:</span>
+        <span class="cart-total-amount" id="cart-total-amount">₹0</span>
+      </div>
+      <button id="whatsapp-order-btn" class="whatsapp-btn" disabled>
+        <i class="fab fa-whatsapp"></i> <span id="whatsapp-btn-text">Order via WhatsApp</span>
+      </button>
+      <button id="clear-cart-btn" class="clear-cart-btn">
+        <i class="fas fa-trash-alt"></i> <span id="clear-cart-text">Clear Cart</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ═══ Floating Bottom Cart Bar ═══ -->
+  <div id="floating-cart-bar" class="floating-cart-bar hidden">
+    <div class="floating-cart-info" id="floating-cart-trigger">
+      <div class="floating-cart-icon-wrap">
+        <i class="fas fa-shopping-bag"></i>
+        <span id="floating-cart-count" class="floating-cart-badge">0</span>
+      </div>
+      <div class="floating-cart-text">
+        <span id="floating-cart-items-text" class="floating-cart-title">0 Items in Cart</span>
+        <span id="floating-cart-total" class="floating-cart-price">₹0</span>
+      </div>
+    </div>
+    <button id="floating-view-cart-btn" class="floating-cart-action-btn">
+      <span id="floating-view-cart-label">View Cart &amp; Order</span>
+      <i class="fas fa-arrow-right"></i>
+    </button>
+  </div>
+
+  <!-- ═══ Booking Success Modal ═══ -->
+  <div id="booking-modal" class="modal-overlay">
+    <div class="modal">
+      <div class="success-icon">✅</div>
+      <h2 id="success-modal-title">Booking Successful!</h2>
+      <p id="success-modal-desc">Your order details and delivery navigation link have been prepared for WhatsApp. We will confirm shortly.</p>
+      <div id="modal-order-id" class="order-id"></div>
+      <button id="modal-close-btn" class="modal-close-btn">Continue Shopping</button>
+    </div>
+  </div>
+
+  <!-- ═══ Edit Product Modal (Admin) ═══ -->
+  <div id="edit-product-modal" class="modal-overlay">
+    <div class="modal edit-modal">
+      <div class="modal-header-bar">
+        <h2>✏️ Edit Product</h2>
+        <button id="edit-modal-close" class="cart-close-btn" style="background:rgba(0,0,0,0.06);"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="edit-product-form">
+        <input type="hidden" id="edit-product-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Product Name (English)</label>
+            <input type="text" id="edit-name" class="form-input" required>
+          </div>
+          <div class="form-group">
+            <label>Product Name (Telugu)</label>
+            <input type="text" id="edit-nameTelugu" class="form-input">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Price per KG (₹)</label>
+            <input type="number" id="edit-pricePerKg" class="form-input" required min="0">
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select id="edit-category" class="form-input">
+              <option value="whole">Whole</option>
+              <option value="skinless">Skinless</option>
+              <option value="boneless">Boneless</option>
+              <option value="currycut">Curry Cut</option>
+              <option value="wings">Wings</option>
+              <option value="legs">Legs</option>
+              <option value="liver">Liver</option>
+              <option value="keema">Keema</option>
+              <option value="gizzard">Gizzard</option>
+              <option value="breast">Breast</option>
+              <option value="heart">Heart</option>
+              <option value="feet">Feet</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Unit</label>
+            <select id="edit-unit" class="form-input">
+              <option value="kg">KG</option>
+              <option value="piece">Piece</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Display Order</label>
+            <input type="number" id="edit-displayOrder" class="form-input" value="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Description (English)</label>
+          <input type="text" id="edit-description" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>Description (Telugu)</label>
+          <input type="text" id="edit-descriptionTelugu" class="form-input">
+        </div>
+        <div class="form-group">
+          <label>New Product Image (optional)</label>
+          <input type="file" id="edit-image" class="form-input" accept="image/*">
+          <img id="edit-image-preview" alt="Preview" style="display:none;margin-top:10px;max-width:160px;max-height:120px;object-fit:cover;border-radius:10px;border:1px solid var(--border-subtle);">
+        </div>
+        <div class="form-group" style="display:flex;align-items:center;gap:12px;margin-top:10px;">
+          <input type="checkbox" id="edit-inStock" style="width:20px;height:20px;cursor:pointer;">
+          <label for="edit-inStock" style="cursor:pointer;font-weight:600;">Available In Stock (Checked = In Stock, Unchecked = Disabled)</label>
+        </div>
+        <button type="submit" id="save-details-btn" class="admin-submit-btn" style="width:100%;margin-top:16px;">Save Details</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══ Admin Dashboard Panel ═══ -->
+  <div id="admin-panel" class="admin-panel">
+    <div class="admin-header">
+      <h1><i class="fas fa-shield-halved"></i> Store Manager Dashboard</h1>
+      <button id="admin-close" class="admin-close-btn"><i class="fas fa-times"></i> Close</button>
+    </div>
+
+    <!-- Admin Login -->
+    <div id="admin-login" class="admin-login">
+      <h2>🔒 Store Manager Login</h2>
+      <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:16px;">Enter the shop manager access password to manage inventory and view customer orders.</p>
+      <form id="admin-login-form">
+        <input type="password" id="admin-password" class="form-input" placeholder="Enter admin password (e.g. jyothi@admin123)" required>
+        <button type="submit" class="admin-login-btn" style="margin-top:16px;">Access Dashboard</button>
+      </form>
+    </div>
+
+    <!-- Admin Content -->
+    <div id="admin-content" class="admin-content">
+      <div class="admin-tabs">
+        <button class="admin-tab active" data-tab="products-tab"><i class="fas fa-box"></i> Products &amp; Stock</button>
+        <button class="admin-tab" data-tab="orders-tab"><i class="fas fa-list-check"></i> Orders</button>
+        <button class="admin-tab" data-tab="offers-tab"><i class="fas fa-bullhorn"></i> Offers</button>
+        <button class="admin-tab" data-tab="settings-tab"><i class="fas fa-sliders"></i> Settings</button>
+      </div>
+
+      <!-- Products Tab -->
+      <div id="products-tab" class="admin-tab-content" style="padding:24px;">
+        <div class="admin-form">
+          <h3>➕ Add New Chicken Product</h3>
+          <form id="add-product-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Product Name (English)</label>
+                <input type="text" name="name" class="form-input" placeholder="e.g., Chicken Lollipop" required>
+              </div>
+              <div class="form-group">
+                <label>Product Name (Telugu)</label>
+                <input type="text" name="nameTelugu" class="form-input" placeholder="e.g., చికెన్ లాలీపాప్">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Price per KG / Unit (₹)</label>
+                <input type="number" name="pricePerKg" class="form-input" placeholder="e.g., 280" required min="0">
+              </div>
+              <div class="form-group">
+                <label>Category</label>
+                <select name="category" class="form-input">
+                  <option value="whole">Whole</option>
+                  <option value="skinless">Skinless</option>
+                  <option value="boneless">Boneless</option>
+                  <option value="currycut">Curry Cut</option>
+                  <option value="wings">Wings</option>
+                  <option value="legs">Legs</option>
+                  <option value="liver">Liver</option>
+                  <option value="keema">Keema</option>
+                  <option value="gizzard">Gizzard</option>
+                  <option value="breast">Breast</option>
+                  <option value="heart">Heart</option>
+                  <option value="feet">Feet</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Unit</label>
+                <select name="unit" class="form-input">
+                  <option value="kg">KG</option>
+                  <option value="piece">Piece</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Display Order</label>
+                <input type="number" name="displayOrder" class="form-input" placeholder="1" value="0">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Description (English)</label>
+              <input type="text" name="description" class="form-input" placeholder="Fresh and juicy chicken cut">
+            </div>
+            <div class="form-group">
+              <label>Description (Telugu)</label>
+              <input type="text" name="descriptionTelugu" class="form-input" placeholder="తెలుగులో వివరణ">
+            </div>
+            <div class="form-group">
+              <label>Product Image</label>
+              <input type="file" name="image" class="form-input" accept="image/*">
+            </div>
+            <div class="form-group" style="display:flex;align-items:center;gap:12px;margin-top:10px;">
+              <input type="checkbox" name="inStock" id="add-inStock" checked style="width:20px;height:20px;cursor:pointer;">
+              <label for="add-inStock" style="cursor:pointer;font-weight:600;">Available in Stock right now</label>
+            </div>
+            <button type="submit" class="admin-submit-btn">Add Product</button>
+          </form>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:32px;margin-bottom:16px;">
+          <h3 style="color:var(--text-primary);font-family:'Outfit',sans-serif;font-size:1.25rem;">📦 Inventory &amp; Stock Availability</h3>
+          <span style="font-size:0.8rem;color:var(--text-muted);"><i class="fas fa-info-circle"></i> Click any stock button to quickly enable/disable an item</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Image</th>
+                <th>Name</th>
+                <th>Telugu</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Stock Toggle</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-products-list"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Orders Tab -->
+      <div id="orders-tab" class="admin-tab-content" style="padding:24px;display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+          <div>
+            <h3 style="color:var(--text-primary);font-family:'Outfit',sans-serif;font-size:1.25rem;">📋 Recent Customer Orders</h3>
+            <span style="font-size:0.8rem;color:var(--text-muted);">Keeps the latest 10 orders only. Includes GPS navigation to the customer.</span>
+          </div>
+          <div class="order-filter-btns">
+            <button class="order-filter-btn active" data-status="all">All</button>
+            <button class="order-filter-btn" data-status="pending">Pending</button>
+            <button class="order-filter-btn" data-status="confirmed">Confirmed</button>
+            <button class="order-filter-btn" data-status="cancelled">Cancelled</button>
+          </div>
+        </div>
+        <div id="admin-orders-list"></div>
+      </div>
+
+      <!-- Offers Tab -->
+      <div id="offers-tab" class="admin-tab-content" style="padding:24px;display:none;">
+        <div class="admin-form">
+          <h3>🎯 Add Festival Offer / Discount</h3>
+          <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:16px;">Pick a Telugu festival template, add discount text, and it will show in the offers bar below the navbar.</p>
+          <form id="add-offer-form">
+            <div class="form-group">
+              <label>Offer Template (4 festival designs)</label>
+              <div class="offer-template-grid" id="offer-template-grid">
+                <label class="offer-tpl-option tpl-dussehra selected">
+                  <input type="radio" name="offer-template" value="dussehra" checked>
+                  <span class="offer-tpl-emoji">🏹</span>
+                  <strong>Dussehra</strong>
+                  <small>దసరా</small>
+                </label>
+                <label class="offer-tpl-option tpl-diwali">
+                  <input type="radio" name="offer-template" value="diwali">
+                  <span class="offer-tpl-emoji">🪔</span>
+                  <strong>Diwali</strong>
+                  <small>దీపావళి</small>
+                </label>
+                <label class="offer-tpl-option tpl-ugadi">
+                  <input type="radio" name="offer-template" value="ugadi">
+                  <span class="offer-tpl-emoji">🌼</span>
+                  <strong>Ugadi</strong>
+                  <small>ఉగాది</small>
+                </label>
+                <label class="offer-tpl-option tpl-sankranti">
+                  <input type="radio" name="offer-template" value="sankranti">
+                  <span class="offer-tpl-emoji">🪁</span>
+                  <strong>Sankranti</strong>
+                  <small>సంక్రాంతి</small>
+                </label>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Discount / Offer Label</label>
+                <input type="text" id="offer-discount-input" class="form-input" placeholder="e.g., 15% OFF or ₹50 OFF" required>
+              </div>
+              <div class="form-group">
+                <label>Emoji Icon</label>
+                <input type="text" id="offer-emoji-input" class="form-input" placeholder="🏹" value="🏹" style="max-width:80px;">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Offer Title (English)</label>
+                <input type="text" id="offer-text-input" class="form-input" placeholder="e.g., Dussehra Special on all cuts" required>
+              </div>
+              <div class="form-group">
+                <label>Offer Title (Telugu)</label>
+                <input type="text" id="offer-text-te-input" class="form-input" placeholder="తెలుగులో ఆఫర్ టైటిల్">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Short Description (English)</label>
+                <input type="text" id="offer-desc-input" class="form-input" placeholder="Celebrate with farm-fresh chicken">
+              </div>
+              <div class="form-group">
+                <label>Short Description (Telugu)</label>
+                <input type="text" id="offer-desc-te-input" class="form-input" placeholder="తెలుగులో వివరణ">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Display Order</label>
+              <input type="number" id="offer-order-input" class="form-input" value="0" style="max-width:100px;">
+            </div>
+            <button type="submit" class="admin-submit-btn" style="margin-top:12px;">Add Offer</button>
+          </form>
+        </div>
+
+        <div style="margin-top:24px;">
+          <h3 style="color:var(--text-primary);font-family:'Outfit',sans-serif;font-size:1.15rem;margin-bottom:14px;">📢 Active Offers</h3>
+          <div id="admin-offers-list"></div>
+        </div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div id="settings-tab" class="admin-tab-content" style="padding:24px;display:none;">
+        <div class="admin-form">
+          <h3>⚙️ Shop Settings &amp; WhatsApp Configuration</h3>
+          <div class="form-group" style="display:flex;align-items:center;gap:16px;">
+            <label style="font-weight:600;">Shop Open for Orders</label>
+            <div id="shop-toggle" class="toggle-switch active"></div>
+          </div>
+          <div class="form-group">
+            <label>Display Phone (shown on website)</label>
+            <input type="text" id="settings-phone" class="form-input" placeholder="7993996127">
+            <small style="color:var(--text-muted);font-size:0.75rem;">Customers see this number. Default: 7993996127</small>
+          </div>
+          <div class="form-group">
+            <label>Order WhatsApp Number (orders are received here)</label>
+            <input type="text" id="settings-order-phone" class="form-input" placeholder="9160726658">
+            <small style="color:var(--text-muted);font-size:0.75rem;">WhatsApp checkout uses this number. Default: 9160726658 (10 digits or with 91)</small>
+          </div>
+          <div class="form-group">
+            <label>Shop Physical Address</label>
+            <input type="text" id="settings-address" class="form-input" placeholder="Main Road, Near Bus Stand">
+          </div>
+          <div class="form-group">
+            <label>Top Announcement Banner Message (Optional)</label>
+            <textarea id="settings-message" class="form-input" placeholder="e.g., Fresh country chicken stock arrived today! Free home delivery on 2kg+" style="min-height:80px;resize:vertical;"></textarea>
+          </div>
+          <button id="save-settings-btn" class="admin-submit-btn">Save Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Footer ═══ -->
+  <footer class="footer">
+    <!-- ═══ Highlighted Brand Banner (Footer Name Highlight as requested) ═══ -->
+    <div class="footer-highlight-card">
+      <div class="footer-highlight-inner">
+        <div class="footer-highlight-logo-wrap">
+          <img src="images/logo.jpg" alt="Jyothi Fresh Chiken Logo" class="footer-highlight-logo" width="96" height="96">
+        </div>
+        <div class="footer-highlight-content">
+          <div class="footer-highlight-badge"><i class="fas fa-crown"></i> 100% QUALITY ASSURED &bull; FARM TO FORK</div>
+          <h2 class="footer-highlight-title" id="brand-title">👑 Jyothi Fresh Chiken</h2>
+          <p class="footer-highlight-subtitle" id="brand-subtitle">Farm Fresh &bull; Daily Quality Delivery &bull; Hygienic Custom Cuts</p>
+          <div class="footer-highlight-pills">
+            <span class="f-pill"><i class="fas fa-certificate"></i> Certified Fresh</span>
+            <span class="f-pill"><i class="fas fa-soap"></i> Cleaned &amp; Sanitized</span>
+            <span class="f-pill"><i class="fas fa-motorcycle"></i> 45-Min Home Delivery</span>
+            <span class="f-pill"><i class="fas fa-indian-rupee-sign"></i> Best Local Rates</span>
+          </div>
+        </div>
+        <div class="footer-highlight-action">
+          <a href="https://wa.me/919160726658?text=Hi%2C%20I%20want%20to%20order%20fresh%20chicken%20from%20Jyothi%20Fresh%20Chiken" target="_blank" class="js-order-wa footer-order-cta">
+            <i class="fab fa-whatsapp"></i> Order on WhatsApp
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-inner">
+      <div class="footer-section">
+        <h3 id="footer-brand-title">👑 Jyothi Fresh Chiken</h3>
+        <p id="footer-brand-desc" style="margin-top:8px;">Your trusted neighbourhood poultry partner. Fresh healthy chickens sourced daily from accredited local farms with pure taste, safety, and hygiene.</p>
+        <p class="footer-owner" id="footer-owner">Owner: Gulla Rajkumar</p>
+        <div class="social-links">
+          <a href="#" class="social-link" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+          <a href="#" class="social-link" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+          <a href="https://wa.me/919160726658" target="_blank" class="js-order-wa social-link" aria-label="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+          <a href="#" class="social-link" aria-label="YouTube"><i class="fab fa-youtube"></i></a>
+        </div>
+      </div>
+      <div class="footer-section">
+        <h3 id="footer-contact-title">Contact Us</h3>
+        <ul>
+          <li><i class="fas fa-user footer-icon"></i> Owner: Gulla Rajkumar</li>
+          <li><i class="fas fa-phone footer-icon"></i> <span class="js-display-phone">+91 79939 96127</span></li>
+          <li><i class="fab fa-whatsapp footer-icon"></i> Call: <span class="js-display-phone">79939 96127</span></li>
+          <li><i class="fas fa-map-marker-alt footer-icon"></i> <span id="footer-address">Main Road</span></li>
+        </ul>
+      </div>
+      <div class="footer-section">
+        <h3 id="footer-hours-title">Working Hours</h3>
+        <ul>
+          <li id="footer-days"><i class="fas fa-calendar-check footer-icon"></i> Monday – Sunday (All 7 Days)</li>
+          <li id="footer-timings"><i class="fas fa-clock footer-icon"></i> 6:00 AM – 8:00 PM</li>
+          <li><i class="fas fa-truck-fast footer-icon"></i> Express Home Delivery Available</li>
+        </ul>
+      </div>
+      <div class="footer-section">
+        <h3 id="footer-quick-title">Quick Links</h3>
+        <ul>
+          <li><a href="#offers-section"><i class="fas fa-tag footer-icon"></i> <span id="link-offers">Special Offers</span></a></li>
+          <li><a href="#products-grid"><i class="fas fa-drumstick-bite footer-icon"></i> <span id="link-products">All Fresh Cuts</span></a></li>
+          <li><a href="https://wa.me/919160726658" target="_blank" class="js-order-wa"><i class="fab fa-whatsapp footer-icon"></i> <span id="link-order">Direct WhatsApp Order</span></a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom" id="footer-copyright">
+      &copy; 2026 Jyothi Fresh Chiken. Owner: Gulla Rajkumar. Premium Fresh Poultry. All rights reserved.
+    </div>
+  </footer>
+
+  <!-- ═══ Floating WhatsApp Quick Action Button ═══ -->
+  <a href="https://wa.me/919160726658?text=Hi%2C%20I%20want%20to%20order%20fresh%20chicken" target="_blank" class="js-order-wa floating-whatsapp" aria-label="Chat on WhatsApp">
+    <i class="fab fa-whatsapp"></i>
+  </a>
+
+  <!-- ═══ Back to Top Button ═══ -->
+  <button id="back-to-top" class="back-to-top" aria-label="Back to top">
+    <i class="fas fa-chevron-up"></i>
+  </button>
+
+  <!-- ═══ Toast Container ═══ -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- ═══ Main Application Script ═══ -->
+  <script src="js/app.js"></script>
+</body>
+</html>

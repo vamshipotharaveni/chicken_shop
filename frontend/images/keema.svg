@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <rect width="400" height="300" fill="#FFF7ED"/>
+  <ellipse cx="200" cy="250" rx="120" ry="18" fill="#FED7AA" opacity="0.8"/>
+  <ellipse cx="200" cy="170" rx="100" ry="70" fill="#E11D48"/>
+  <circle cx="160" cy="150" r="14" fill="#FB7185"/>
+  <circle cx="210" cy="140" r="12" fill="#F43F5E"/>
+  <circle cx="240" cy="175" r="16" fill="#BE123C"/>
+  <circle cx="175" cy="190" r="11" fill="#FB7185"/>
+  <circle cx="230" cy="205" r="13" fill="#F43F5E"/>
+  <text x="200" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#9A3412">Chicken Keema</text>
+</svg>

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <rect width="400" height="300" fill="#FFF1F2"/>
+  <ellipse cx="200" cy="250" rx="120" ry="18" fill="#FECACA" opacity="0.7"/>
+  <ellipse cx="210" cy="165" rx="95" ry="70" fill="#F43F5E"/>
+  <ellipse cx="145" cy="120" rx="42" ry="38" fill="#FB7185"/>
+  <circle cx="132" cy="108" r="6" fill="#1F2937"/>
+  <polygon points="105,118 78,128 105,138" fill="#F59E0B"/>
+  <ellipse cx="255" cy="210" rx="38" ry="22" fill="#E11D48"/>
+  <ellipse cx="155" cy="215" rx="34" ry="20" fill="#E11D48"/>
+  <text x="200" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="#9F1239">Full Chicken</text>
+</svg>
