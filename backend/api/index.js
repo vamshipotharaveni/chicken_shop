@@ -25,7 +25,9 @@ app.use(express.static(frontendDir));
 app.use('/images', express.static(path.join(frontendDir, 'images')));
 
 // Uploads directory (local fallback for images)
-const uploadsDir = path.join(__dirname, '..', 'uploads');
+const uploadsDir = process.env.VERCEL === '1'
+  ? path.join('/tmp', 'jyothi-uploads')
+  : path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -35,7 +37,7 @@ app.use('/uploads', express.static(uploadsDir));
 let dbConnected = false;
 const mongoURI = process.env.MONGODB_URI;
 
-if (mongoURI && !mongoURI.includes('CLUSTER_URL') && !mongoURI.includes('<db_password>')) {
+if (mongoURI && !mongoURI.includes('CLUSTER_URL') && !mongoURI.includes('<db_password>') && !mongoURI.includes('<db_username>')) {
   mongoose.connect(mongoURI)
     .then(() => {
       dbConnected = true;

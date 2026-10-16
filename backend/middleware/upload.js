@@ -30,9 +30,15 @@ if (process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.
   upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 } else {
   // Local disk storage fallback
+  const localUploadsDir = process.env.VERCEL === '1'
+    ? path.join('/tmp', 'jyothi-uploads')
+    : path.join(__dirname, '..', 'uploads');
+  if (!require('fs').existsSync(localUploadsDir)) {
+    require('fs').mkdirSync(localUploadsDir, { recursive: true });
+  }
   const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-      cb(null, path.join(__dirname, '..', 'uploads'));
+      cb(null, localUploadsDir);
     },
     filename: (req, file, cb) => {
       const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
