@@ -1791,6 +1791,7 @@ function closeEditProduct() {
 async function saveEditProduct(e) {
   e.preventDefault();
   const id = $('#edit-product-id').value;
+  const saveButton = $('#save-details-btn');
   const formData = new FormData();
 
   formData.append('name', $('#edit-name').value);
@@ -1808,6 +1809,8 @@ async function saveEditProduct(e) {
     formData.append('image', imageInput.files[0]);
   }
 
+  saveButton.disabled = true;
+  saveButton.textContent = 'Saving...';
   try {
     const res = await fetch(API_BASE + `/api/products/${id}`, {
       method: 'PUT',
@@ -1834,6 +1837,9 @@ async function saveEditProduct(e) {
     }
   } catch (e) {
     showToast('Server error while updating product', 'error');
+  } finally {
+    saveButton.disabled = false;
+    saveButton.textContent = 'Save Details';
   }
 }
 

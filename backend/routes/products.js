@@ -23,6 +23,26 @@ function getUploadedImage(file) {
   return { image: `/uploads/${file.filename}`, imagePublicId: '' };
 }
 
+function requireProductDatabase(req, res, next) {
+  if (process.env.VERCEL === '1' && !isDbConnected()) {
+    return res.status(503).json({
+      error: 'Product changes need a connected MongoDB database on Vercel. Cloudinary stores images, but product details are saved in MongoDB.'
+    });
+  }
+  next();
+}
+
+function handleProductImageUpload(req, res, next) {
+  upload.single('image')(req, res, error => {
+    if (!error) return next();
+    const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : error.name === 'MulterError' ? 400 : 502;
+    const message = error.name === 'MulterError' || error.message.includes('Only JPG')
+      ? error.message
+      : `Image upload failed. Check the Cloudinary configuration in the deployment environment. ${error.message}`;
+    res.status(status).json({ error: message });
+  });
+}
+
 // Demo products fallback (when DB is unavailable)
 const DEMO_PRODUCTS = [
   { _id: 'd1', name: 'Full Chicken', nameTelugu: 'పూర్తి కోడి', category: 'whole', pricePerKg: 220, unit: 'kg', image: '/images/full_chicken.svg', description: 'Fresh whole chicken with skin. Best for curries.', descriptionTelugu: 'తాజా పూర్తి కోడి. కర్రీలకు అనుకూలం.', inStock: true, displayOrder: 1 },
@@ -65,13 +85,10 @@ router.get('/:id/image', async (req, res) => {
 });
 
 // POST new product (admin)
-router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
+router.post('/', verifyAdmin, requireProductDatabase, handleProductImageUpload, async (req, res) => {
   try {
     const data = { ...req.body };
     if (req.file) {
-      if (process.env.VERCEL === '1' && !isDbConnected()) {
-        return res.status(503).json({ error: 'Image uploads require a connected database or Cloudinary on Vercel.' });
-      }
       Object.assign(data, getUploadedImage(req.file));
       data.imageVersion = Date.now();
     }
@@ -93,7 +110,9 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
           delete response.imageContentType;
           return res.status(201).json(response);
         }
-      } catch (_) {}
+      } catch (e) {
+        return res.status(500).json({ error: `Database save failed: ${e.message}` });
+      }
     }
 
     // Fallback: Add to DEMO_PRODUCTS
@@ -107,13 +126,10 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
 });
 
 // PUT update product (admin)
-router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
+router.put('/:id', verifyAdmin, requireProductDatabase, handleProductImageUpload, async (req, res) => {
   try {
     const data = { ...req.body };
     if (req.file) {
-      if (process.env.VERCEL === '1' && !isDbConnected()) {
-        return res.status(503).json({ error: 'Image uploads require a connected database or Cloudinary on Vercel.' });
-      }
       Object.assign(data, getUploadedImage(req.file));
       if (req.file.buffer) data.image = `/api/products/${req.params.id}/image`;
       data.imageVersion = Date.now();
@@ -129,7 +145,9 @@ router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
     if (isDbConnected()) {
       try {
         product = await Product.findByIdAndUpdate(req.params.id, data, { new: true });
-      } catch (_) {}
+      } catch (e) {
+        return res.status(500).json({ error: `Database update failed: ${e.message}` });
+      }
     }
 
     if (product) {
