@@ -5,6 +5,24 @@ const verifyAdmin = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const { isDbConnected } = require('../utils/db');
 
+function getUploadedImage(file) {
+  if (file.secure_url) {
+    return { image: file.secure_url, imagePublicId: file.public_id || file.filename || '' };
+  }
+  if (file.path && /^https?:\/\//i.test(file.path)) {
+    return { image: file.path, imagePublicId: file.public_id || file.filename || '' };
+  }
+  if (file.buffer) {
+    return {
+      image: '',
+      imagePublicId: '',
+      imageData: file.buffer,
+      imageContentType: file.mimetype
+    };
+  }
+  return { image: `/uploads/${file.filename}`, imagePublicId: '' };
+}
+
 // Demo products fallback (when DB is unavailable)
 const DEMO_PRODUCTS = [
   { _id: 'd1', name: 'Full Chicken', nameTelugu: 'పూర్తి కోడి', category: 'whole', pricePerKg: 220, unit: 'kg', image: '/images/full_chicken.svg', description: 'Fresh whole chicken with skin. Best for curries.', descriptionTelugu: 'తాజా పూర్తి కోడి. కర్రీలకు అనుకూలం.', inStock: true, displayOrder: 1 },
@@ -34,13 +52,28 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.get('/:id/image', async (req, res) => {
+  try {
+    if (!isDbConnected()) return res.status(503).end();
+    const product = await Product.findById(req.params.id).select('+imageData');
+    if (!product || !product.imageData) return res.status(404).end();
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.type(product.imageContentType || 'application/octet-stream').send(product.imageData);
+  } catch (e) {
+    res.status(404).end();
+  }
+});
+
 // POST new product (admin)
 router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
   try {
     const data = { ...req.body };
     if (req.file) {
-      data.image = req.file.secure_url || ('/uploads/' + req.file.filename);
-      data.imagePublicId = req.file.public_id || '';
+      if (process.env.VERCEL === '1' && !isDbConnected()) {
+        return res.status(503).json({ error: 'Image uploads require a connected database or Cloudinary on Vercel.' });
+      }
+      Object.assign(data, getUploadedImage(req.file));
+      data.imageVersion = Date.now();
     }
     data.inStock = data.inStock === 'true' || data.inStock === true;
     data.pricePerKg = Number(data.pricePerKg);
@@ -49,7 +82,17 @@ router.post('/', verifyAdmin, upload.single('image'), async (req, res) => {
     if (isDbConnected()) {
       try {
         const product = await Product.create(data);
-        if (product) return res.status(201).json(product);
+        if (product) {
+          if (req.file && req.file.buffer) {
+            product.image = `/api/products/${product._id}/image`;
+            product.imageVersion = Date.now();
+            await product.save();
+          }
+          const response = product.toObject();
+          delete response.imageData;
+          delete response.imageContentType;
+          return res.status(201).json(response);
+        }
       } catch (_) {}
     }
 
@@ -68,8 +111,11 @@ router.put('/:id', verifyAdmin, upload.single('image'), async (req, res) => {
   try {
     const data = { ...req.body };
     if (req.file) {
-      data.image = req.file.secure_url || ('/uploads/' + req.file.filename);
-      data.imagePublicId = req.file.public_id || '';
+      if (process.env.VERCEL === '1' && !isDbConnected()) {
+        return res.status(503).json({ error: 'Image uploads require a connected database or Cloudinary on Vercel.' });
+      }
+      Object.assign(data, getUploadedImage(req.file));
+      if (req.file.buffer) data.image = `/api/products/${req.params.id}/image`;
       data.imageVersion = Date.now();
     } else {
       delete data.image;

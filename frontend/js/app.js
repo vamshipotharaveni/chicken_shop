@@ -239,6 +239,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function init() {
+  const isAdminRoute = location.pathname.replace(/\/+$/, '') === '/admin';
+  document.body.classList.toggle('admin-route', isAdminRoute);
   applyTheme(currentTheme);
 
   // Step 1: INSTANT RENDER from cache or demo data (0ms delay)
@@ -269,6 +271,7 @@ async function init() {
 
   // Step 3: Bind all events and init UI components immediately
   bindEvents();
+  if (isAdminRoute) openAdmin();
   initHeroCanvas();
   initTestimonialsCarousel();
   initBackToTop();
@@ -1320,6 +1323,10 @@ function openAdmin() {
 }
 
 function closeAdmin() {
+  if (document.body.classList.contains('admin-route')) {
+    window.location.assign('/');
+    return;
+  }
   adminPanel.classList.remove('active');
   document.body.style.overflow = '';
 }
@@ -1351,7 +1358,6 @@ async function loadAdminData() {
   await loadAdminProducts();
   await loadAdminOrders();
   await loadAdminOffers();
-  loadAdminSettings();
 }
 
 async function loadAdminProducts() {
@@ -1528,46 +1534,6 @@ async function deleteOrder(orderId) {
     showToast('Order removed', 'success');
   } catch (e) {
     showToast('Failed to delete order', 'error');
-  }
-}
-
-// ── Admin Settings ────────────────────────────────────
-function loadAdminSettings() {
-  const toggle = $('#shop-toggle');
-  if (shopSettings.shopOpen) {
-    toggle.classList.add('active');
-  } else {
-    toggle.classList.remove('active');
-  }
-  $('#settings-phone').value = shopSettings.shopPhone || '';
-  if ($('#settings-order-phone')) $('#settings-order-phone').value = shopSettings.orderPhone || '';
-  $('#settings-address').value = shopSettings.shopAddress || '';
-  $('#settings-message').value = shopSettings.shopMessage || '';
-}
-
-async function saveSettings() {
-  const shopOpen = $('#shop-toggle').classList.contains('active');
-  const shopPhone = $('#settings-phone').value.trim();
-  const orderPhone = ($('#settings-order-phone') && $('#settings-order-phone').value.trim()) || '';
-  const shopAddress = $('#settings-address').value.trim();
-  const shopMessage = $('#settings-message').value.trim();
-
-  try {
-    await fetch(API_BASE + '/api/admin/settings', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': adminToken
-      },
-      body: JSON.stringify({ shopOpen, shopPhone, orderPhone, shopAddress, shopMessage })
-    });
-    shopSettings = { ...shopSettings, shopOpen, shopPhone, orderPhone, shopAddress, shopMessage };
-    updateShopStatus();
-    updateAnnouncement();
-    updateContactUI();
-    showToast('Settings saved successfully!', 'success');
-  } catch (e) {
-    showToast('Failed to save settings', 'error');
   }
 }
 
@@ -1863,52 +1829,11 @@ async function saveEditProduct(e) {
       renderRatesTicker();
       loadAdminProducts();
     } else {
-      // If API fails, update locally anyway
-      const idx = allProducts.findIndex(p => p._id === id);
-      if (idx !== -1) {
-        allProducts[idx].name = $('#edit-name').value;
-        allProducts[idx].nameTelugu = $('#edit-nameTelugu').value;
-        allProducts[idx].pricePerKg = Number($('#edit-pricePerKg').value);
-        allProducts[idx].category = $('#edit-category').value;
-        allProducts[idx].unit = $('#edit-unit').value;
-        allProducts[idx].displayOrder = Number($('#edit-displayOrder').value) || 0;
-        allProducts[idx].description = $('#edit-description').value;
-        allProducts[idx].descriptionTelugu = $('#edit-descriptionTelugu').value;
-        allProducts[idx].inStock = $('#edit-inStock').checked;
-        localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(allProducts));
-        showToast('Product updated locally!', 'success');
-        closeEditProduct();
-        imageInput.value = '';
-        renderProducts();
-        renderRatesTicker();
-        loadAdminProducts();
-      } else {
-        showToast('Failed to update product', 'error');
-      }
+      const error = await res.json().catch(() => ({}));
+      showToast(error.error || 'Failed to update product', 'error');
     }
   } catch (e) {
-    // Network error: update locally
-    const idx = allProducts.findIndex(p => p._id === id);
-    if (idx !== -1) {
-      allProducts[idx].name = $('#edit-name').value;
-      allProducts[idx].nameTelugu = $('#edit-nameTelugu').value;
-      allProducts[idx].pricePerKg = Number($('#edit-pricePerKg').value);
-      allProducts[idx].category = $('#edit-category').value;
-      allProducts[idx].unit = $('#edit-unit').value;
-      allProducts[idx].displayOrder = Number($('#edit-displayOrder').value) || 0;
-      allProducts[idx].description = $('#edit-description').value;
-      allProducts[idx].descriptionTelugu = $('#edit-descriptionTelugu').value;
-      allProducts[idx].inStock = $('#edit-inStock').checked;
-      localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(allProducts));
-      showToast('Product updated locally (offline mode)', 'info');
-      closeEditProduct();
-      imageInput.value = '';
-      renderProducts();
-      renderRatesTicker();
-      loadAdminProducts();
-    } else {
-      showToast('Server error while updating product', 'error');
-    }
+    showToast('Server error while updating product', 'error');
   }
 }
 
@@ -1981,7 +1906,6 @@ function bindEvents() {
   });
 
   // Admin panel events
-  $('#admin-toggle').addEventListener('click', openAdmin);
   $('#admin-close').addEventListener('click', closeAdmin);
   $('#admin-login-form').addEventListener('submit', adminLoginHandler);
   $('#add-product-form').addEventListener('submit', addProduct);
@@ -2010,18 +1934,6 @@ function bindEvents() {
       renderAdminOrders();
     });
   });
-
-  // Shop toggle in admin
-  const shopToggle = $('#shop-toggle');
-  if (shopToggle) {
-    shopToggle.addEventListener('click', () => {
-      shopToggle.classList.toggle('active');
-    });
-  }
-
-  // Save admin settings
-  const saveBtn = $('#save-settings-btn');
-  if (saveBtn) saveBtn.addEventListener('click', saveSettings);
 
   const editCloseBtn = $('#edit-modal-close');
   const editModal = $('#edit-product-modal');

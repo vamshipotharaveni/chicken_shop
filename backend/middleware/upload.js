@@ -3,6 +3,12 @@ const path = require('path');
 
 let upload;
 
+const fileFilter = (req, file, cb) => {
+  const allowed = /\.(jpeg|jpg|png|webp)$/i.test(file.originalname)
+    && /^image\/(jpeg|png|webp)$/i.test(file.mimetype);
+  cb(allowed ? null : new Error('Only JPG, PNG, and WebP images are allowed'), allowed);
+};
+
 // Check if Cloudinary is configured
 if (process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_CLOUD_NAME !== 'your_cloud_name')) {
   const cloudinary = require('cloudinary').v2;
@@ -27,7 +33,9 @@ if (process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.
     }
   });
 
-  upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+  upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
+} else if (process.env.VERCEL === '1') {
+  upload = multer({ storage: multer.memoryStorage(), fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
 } else {
   // Local disk storage fallback
   const localUploadsDir = process.env.VERCEL === '1'
@@ -45,13 +53,6 @@ if (process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.
       cb(null, unique + path.extname(file.originalname));
     }
   });
-
-  const fileFilter = (req, file, cb) => {
-    const allowed = /jpeg|jpg|png|webp/;
-    const ext = allowed.test(path.extname(file.originalname).toLowerCase());
-    const mime = allowed.test(file.mimetype);
-    cb(null, ext && mime);
-  };
 
   upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
 }
