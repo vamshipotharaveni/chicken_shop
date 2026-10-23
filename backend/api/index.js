@@ -8,6 +8,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const { isDbConnected, connectToDatabase, getMongoErrorDetails } = require('../utils/db');
 
 mongoose.set('bufferCommands', false);
 
@@ -34,22 +35,9 @@ if (!fs.existsSync(uploadsDir)) {
 app.use('/uploads', express.static(uploadsDir));
 
 // ── MongoDB Connection ───────────────────────────
-let dbConnected = false;
-const mongoURI = process.env.MONGODB_URI;
-
-if (mongoURI && !mongoURI.includes('CLUSTER_URL') && !mongoURI.includes('<db_password>') && !mongoURI.includes('<db_username>')) {
-  mongoose.connect(mongoURI)
-    .then(() => {
-      dbConnected = true;
-      console.log('✅ MongoDB connected successfully');
-    })
-    .catch(err => {
-      console.log('⚠️  MongoDB connection failed - running with demo data fallback');
-      console.log('   Error:', err.message);
-    });
-} else {
-  console.log('ℹ️  No MongoDB URI configured - running with demo data fallback');
-}
+connectToDatabase()
+  .then(() => console.log('MongoDB connected successfully'))
+  .catch(err => console.error('MongoDB connection failed:', err.message));
 
 // ── API Routes ───────────────────────────────────
 app.use('/api/products', require('../routes/products'));
@@ -58,12 +46,37 @@ app.use('/api/offers', require('../routes/offers'));
 app.use('/api/admin', require('../routes/admin'));
 
 // ── Health Check ─────────────────────────────────
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    db: dbConnected ? 'connected' : 'disconnected (using demo data)',
-    uptime: process.uptime()
-  });
+app.get('/api/health', async (req, res) => {
+  if (!isDbConnected()) {
+    try {
+      await connectToDatabase();
+    } catch (error) {
+      const details = getMongoErrorDetails(error);
+      return res.status(503).json({
+        status: 'degraded',
+        db: details.type === 'permissions' ? 'connected_but_not_authorized' : 'disconnected',
+        errorType: details.type,
+        uptime: process.uptime()
+      });
+    }
+  }
+
+  try {
+    await mongoose.connection.db.admin().ping();
+    return res.json({
+      status: 'ok',
+      db: 'connected',
+      uptime: process.uptime()
+    });
+  } catch (error) {
+    const details = getMongoErrorDetails(error);
+    return res.status(503).json({
+      status: 'degraded',
+      db: 'connected_but_ping_failed',
+      errorType: details.type,
+      uptime: process.uptime()
+    });
+  }
 });
 
 // ── Serve Frontend ───────────────────────────────
