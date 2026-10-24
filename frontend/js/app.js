@@ -29,7 +29,6 @@ let searchQuery = '';
 let allOrders = [];
 let orderFilter = 'all';
 let allOffers = [];
-let offersLoaded = false;
 let editingOfferId = '';
 let editImagePreviewUrl = '';
 
@@ -73,10 +72,7 @@ const OFFER_TEMPLATES = {
   }
 };
 
-// ── Performance: Cached products for instant load ─────
-const CACHED_PRODUCTS_KEY = 'jc_products_cache';
 const CACHED_SETTINGS_KEY = 'jc_settings_cache';
-const CACHED_OFFERS_KEY = 'jc_offers_cache';
 
 // Theme & Language State
 let currentTheme = localStorage.getItem('jc_theme') || 'light';
@@ -257,27 +253,10 @@ async function init() {
   document.body.classList.toggle('admin-route', isAdminRoute);
   applyTheme(currentTheme);
 
-  // Step 1: INSTANT RENDER from cache or demo data (0ms delay)
-  const cachedProducts = localStorage.getItem(CACHED_PRODUCTS_KEY);
-  if (cachedProducts) {
-    try { allProducts = JSON.parse(cachedProducts); } catch(e) { allProducts = getDemoProducts(); }
-  } else {
-    allProducts = getDemoProducts();
-  }
+  // Product and offer data must come from the database, never from demo or stale browser data.
   const cachedSettings = localStorage.getItem(CACHED_SETTINGS_KEY);
   if (cachedSettings) {
     try { shopSettings = { ...shopSettings, ...JSON.parse(cachedSettings) }; } catch(e) {}
-  }
-  const cachedOffers = localStorage.getItem(CACHED_OFFERS_KEY);
-  if (cachedOffers) {
-    try {
-      allOffers = JSON.parse(cachedOffers);
-      offersLoaded = Array.isArray(allOffers);
-    } catch(e) {
-      allOffers = getDefaultOffers();
-    }
-  } else {
-    allOffers = getDefaultOffers();
   }
 
   applyLanguage(currentLang);
@@ -314,14 +293,18 @@ async function refreshFromAPI() {
   // Refresh products in background
   try {
     const res = await fetchWithTimeout('/api/products');
+    if (!res.ok) throw new Error(await getApiError(res, 'Could not load products'));
     const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      allProducts = data;
-      localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(data));
-      renderProducts();
-      renderRatesTicker();
-    }
-  } catch(e) { /* Using cached/demo data – no problem */ }
+    if (!Array.isArray(data)) throw new Error('Invalid product data received from the server.');
+    allProducts = data;
+    renderProducts();
+    renderRatesTicker();
+  } catch(e) {
+    allProducts = [];
+    renderProducts();
+    renderRatesTicker();
+    showToast(e.message || 'Could not load products.', 'error');
+  }
 
   // Refresh settings in background
   try {
@@ -340,11 +323,15 @@ async function refreshFromAPI() {
     const data = await res.json();
     if (Array.isArray(data)) {
       allOffers = data;
-      offersLoaded = true;
-      localStorage.setItem(CACHED_OFFERS_KEY, JSON.stringify(data));
       renderStorefrontOffers();
+    } else {
+      throw new Error('Invalid offer data received from the server.');
     }
-  } catch(e) { /* keep cached offers */ }
+  } catch(e) {
+    allOffers = [];
+    renderStorefrontOffers();
+    showToast(e.message || 'Could not load offers.', 'error');
+  }
 }
 
 // ── Theme System (Light by Default & Dark Mode) ───────
@@ -483,38 +470,20 @@ async function getApiError(res, fallback) {
   return data.error || fallback;
 }
 
-// ── Load Products (called for admin refresh, not on initial load) ──
+// ── Load Products ─────────────────────────────────────
 async function loadProducts() {
   try {
-    const data = await apiFetch('/api/products');
-    if (Array.isArray(data) && data.length > 0) {
-      allProducts = data;
-      localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(data));
-    } else {
-      allProducts = getDemoProducts();
-    }
+    const res = await fetch(API_BASE + '/api/products');
+    if (!res.ok) throw new Error(await getApiError(res, 'Could not load products'));
+    const data = await res.json();
+    if (!Array.isArray(data)) throw new Error('Invalid product data received from the server.');
+    allProducts = data;
   } catch (e) {
-    if (!allProducts || allProducts.length === 0) allProducts = getDemoProducts();
+    allProducts = [];
+    showToast(e.message || 'Could not load products.', 'error');
   }
   renderProducts();
   renderRatesTicker();
-}
-
-function getDemoProducts() {
-  return [
-    { _id: 'd1', name: 'Full Chicken', nameTelugu: 'పూర్తి కోడి', category: 'whole', pricePerKg: 220, unit: 'kg', image: '/images/full_chicken.svg', description: 'Fresh whole chicken with skin. Best for rich curries.', descriptionTelugu: 'తాజా పూర్తి కోడి. కర్రీలకు ఎంతో రుచికరం.', inStock: true, displayOrder: 1 },
-    { _id: 'd2', name: 'Skinless Chicken', nameTelugu: 'చర్మం లేని కోడి', category: 'skinless', pricePerKg: 240, unit: 'kg', image: '/images/full_chicken.svg', description: 'Fresh tender chicken without skin. Lean and healthy.', descriptionTelugu: 'చర్మం తీసివేసిన తాజా కోడి. ఆరోగ్యకరం.', inStock: true, displayOrder: 2 },
-    { _id: 'd3', name: 'Boneless Chicken', nameTelugu: 'ఎముక లేని కోడి', category: 'boneless', pricePerKg: 320, unit: 'kg', image: '/images/boneless.svg', description: 'Pure boneless tender breast meat. Ideal for fry & tikka.', descriptionTelugu: 'స్వచ్ఛమైన ఎముక లేని చికెన్. ఫ్రై మరియు టిక్కా కోసం.', inStock: true, displayOrder: 3 },
-    { _id: 'd4', name: 'Chicken Liver', nameTelugu: 'కోడి కాలేయం', category: 'liver', pricePerKg: 120, unit: 'kg', image: '/images/liver.svg', description: 'Fresh chicken liver, rich in natural iron and nutrients.', descriptionTelugu: 'తాజా కోడి కాలేయం. పోషకాలు మరియు ఐరన్ సమృద్ధిగా.', inStock: true, displayOrder: 4 },
-    { _id: 'd5', name: 'Chicken Wings', nameTelugu: 'కోడి రెక్కలు', category: 'wings', pricePerKg: 180, unit: 'kg', image: '/images/wings.svg', description: 'Juicy chicken wings with skin. Perfect for crispy fry.', descriptionTelugu: 'రుచికరమైన కోడి రెక్కలు. క్రిస్పీ ఫ్రైకి అనుకూలం.', inStock: true, displayOrder: 5 },
-    { _id: 'd6', name: 'Chicken Legs (Drumsticks)', nameTelugu: 'కోడి కాళ్ళు (డ్రమ్‌స్టిక్స్)', category: 'legs', pricePerKg: 200, unit: 'kg', image: '/images/legs.svg', description: 'Meaty tender chicken drumsticks, great for tandoor.', descriptionTelugu: 'మాంసంతో కూడిన కోడి కాళ్ళు. తందూరి మరియు బిర్యానీ కోసం.', inStock: true, displayOrder: 6 },
-    { _id: 'd7', name: 'Chicken Keema', nameTelugu: 'కోడి కీమా', category: 'keema', pricePerKg: 340, unit: 'kg', image: '/images/keema.svg', description: 'Freshly minced premium boneless chicken. Ready to cook.', descriptionTelugu: 'తాజాగా గ్రైండ్ చేసిన కోడి కీమా.', inStock: true, displayOrder: 7 },
-    { _id: 'd8', name: 'Chicken Gizzard', nameTelugu: 'కోడి గిజ్జర్డ్', category: 'gizzard', pricePerKg: 100, unit: 'kg', image: '/images/liver.svg', description: 'Cleaned and hygienically processed chicken gizzards.', descriptionTelugu: 'బాగా శుభ్రం చేసిన కోడి గిజ్జర్డ్ ముక్కలు.', inStock: true, displayOrder: 8 },
-    { _id: 'd9', name: 'Chicken Curry Cut', nameTelugu: 'కోడి కర్రీ కట్', category: 'currycut', pricePerKg: 230, unit: 'kg', image: '/images/full_chicken.svg', description: 'Evenly cut medium pieces, ideal for home chicken curry.', descriptionTelugu: 'ఇంటి కర్రీ కోసం సమానంగా కట్ చేసిన ముక్కలు.', inStock: true, displayOrder: 9 },
-    { _id: 'd10', name: 'Chicken Breast', nameTelugu: 'కోడి రొమ్ము', category: 'breast', pricePerKg: 360, unit: 'kg', image: '/images/boneless.svg', description: 'Clean lean chicken breast fillet. High protein diet cut.', descriptionTelugu: 'అధిక ప్రోటీన్ కలిగిన తాజా కోడి రొమ్ము ముక్కలు.', inStock: true, displayOrder: 10 },
-    { _id: 'd11', name: 'Chicken Feet', nameTelugu: 'కోడి పాదాలు', category: 'feet', pricePerKg: 80, unit: 'kg', image: '/images/legs.svg', description: 'Cleaned, pre-washed fresh chicken feet for soup.', descriptionTelugu: 'శుభ్రం చేసిన కోడి పాదాలు. సూప్ కొరకు.', inStock: false, displayOrder: 11 },
-    { _id: 'd12', name: 'Chicken Heart', nameTelugu: 'కోడి గుండె', category: 'heart', pricePerKg: 110, unit: 'kg', image: '/images/liver.svg', description: 'Fresh chicken heart portions. Nutritious and flavorful.', descriptionTelugu: 'తాజా కోడి గుండె భాగాలు. ఎంతో బలవర్ధకమైనవి.', inStock: true, displayOrder: 12 }
-  ];
 }
 
 // ── Load Settings (called for admin refresh, not on initial load) ──
@@ -638,41 +607,21 @@ function flashSaveButton(btn, ok = true) {
   }, 2000);
 }
 
-function getDefaultOffers() {
-  return Object.keys(OFFER_TEMPLATES).map((key, i) => {
-    const t = OFFER_TEMPLATES[key];
-    return {
-      _id: 'of-' + key,
-      template: key,
-      discount: t.discount,
-      text: t.text,
-      textTelugu: t.textTe,
-      description: t.desc,
-      descriptionTelugu: t.descTe,
-      emoji: t.emoji,
-      active: true,
-      displayOrder: i + 1
-    };
-  });
-}
-
 function renderStorefrontOffers() {
   const track = $('#offers-track');
   const dotsWrap = $('#offers-dots');
   if (!track) return;
 
-  const source = offersLoaded ? allOffers : getDefaultOffers();
-  const offers = source.filter(o => o.active !== false).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
-  const list = offers;
+  const list = allOffers.filter(o => o.active !== false).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
   const section = $('#offers-section');
   if (section) section.style.display = list.length ? '' : 'none';
 
   track.innerHTML = list.map(o => {
     const tpl = OFFER_TEMPLATES[o.template] || OFFER_TEMPLATES.dussehra;
-    const title = (currentLang === 'te' && o.textTelugu) ? o.textTelugu : (o.text || tpl.text);
-    const desc = (currentLang === 'te' && o.descriptionTelugu) ? o.descriptionTelugu : (o.description || tpl.desc);
-    const badge = `${escapeHtml(o.emoji || tpl.emoji)} ${(currentLang === 'te' ? tpl.labelTe : tpl.label).toUpperCase()}`;
-    const discount = o.discount || tpl.discount;
+    const title = (currentLang === 'te' && o.textTelugu) ? o.textTelugu : (o.text || '');
+    const desc = (currentLang === 'te' && o.descriptionTelugu) ? o.descriptionTelugu : (o.description || '');
+    const badge = `${escapeHtml(o.emoji || '')} ${(currentLang === 'te' ? tpl.labelTe : tpl.label).toUpperCase()}`;
+    const discount = o.discount || '';
     const templateClass = OFFER_TEMPLATES[o.template] ? o.template : 'dussehra';
     return `
       <div class="bb-offer-card tpl-${templateClass}">
@@ -701,7 +650,7 @@ function renderStorefrontOffers() {
 // ── Rates Ticker ──────────────────────────────────────
 function renderRatesTicker() {
   const ticker = $('#rates-ticker-content');
-  if (!ticker || allProducts.length === 0) return;
+  if (!ticker) return;
 
   const inStockProducts = allProducts.filter(p => p.inStock);
   const items = [...inStockProducts, ...inStockProducts];
@@ -745,6 +694,16 @@ function renderProducts() {
   const countBadge = $('#products-count-badge');
   if (countBadge) {
     countBadge.textContent = t.items_count.replace('{count}', filtered.length);
+  }
+
+  if (allProducts.length === 0) {
+    productsGrid.innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text-muted);">
+        <div style="font-size:3rem;margin-bottom:14px;"><i class="fas fa-box-open"></i></div>
+        <p style="font-size:1.1rem;font-weight:600;color:var(--text-primary);">${currentLang === 'te' ? 'ఉత్పత్తులు ఇంకా జోడించబడలేదు' : 'No products have been added yet'}</p>
+      </div>
+    `;
+    return;
   }
 
   if (filtered.length === 0) {
@@ -1407,6 +1366,12 @@ async function loadAdminData() {
 async function loadAdminProducts() {
   const tbody = $('#admin-products-list');
   if (!tbody) return;
+  await loadProducts();
+
+  if (allProducts.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;">No products have been added yet.</td></tr>';
+    return;
+  }
 
   tbody.innerHTML = allProducts.map(p => `
     <tr>
@@ -1447,7 +1412,6 @@ async function toggleProductStock(id) {
     if (!res.ok) throw new Error(await getApiError(res, 'Failed to update stock'));
     const updatedProduct = await res.json();
     Object.assign(product, updatedProduct);
-    localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(allProducts));
     renderProducts();
     renderRatesTicker();
     loadAdminProducts();
@@ -1592,8 +1556,6 @@ async function loadAdminOffers() {
     });
     if (!res.ok) throw new Error(await getApiError(res, 'Could not load offers'));
     allOffers = await res.json();
-    offersLoaded = true;
-    localStorage.setItem(CACHED_OFFERS_KEY, JSON.stringify(allOffers));
     renderStorefrontOffers();
   } catch (e) {
     allOffers = [];
@@ -1742,8 +1704,6 @@ async function addOffer(e) {
   }
 
   cancelOfferEdit();
-  offersLoaded = true;
-  localStorage.setItem(CACHED_OFFERS_KEY, JSON.stringify(allOffers));
   renderStorefrontOffers();
   renderAdminOffers();
 }
@@ -1799,8 +1759,6 @@ async function toggleOfferStatus(id) {
     if (!res.ok) throw new Error(await getApiError(res, 'Failed to update offer'));
     const updatedOffer = await res.json();
     Object.assign(offer, updatedOffer, { updating: false });
-    offersLoaded = true;
-    localStorage.setItem(CACHED_OFFERS_KEY, JSON.stringify(allOffers));
     renderStorefrontOffers();
     renderAdminOffers();
     showToast(`Offer ${newStatus ? 'activated' : 'deactivated'}`, newStatus ? 'success' : 'info');
@@ -1821,8 +1779,6 @@ async function deleteOffer(id) {
     });
     if (!res.ok) throw new Error(await getApiError(res, 'Failed to delete offer'));
     allOffers = allOffers.filter(o => o._id !== id);
-    offersLoaded = true;
-    localStorage.setItem(CACHED_OFFERS_KEY, JSON.stringify(allOffers));
     renderStorefrontOffers();
     renderAdminOffers();
     showToast('Offer deleted', 'success');
@@ -1848,7 +1804,6 @@ async function addProduct(e) {
       const createdProduct = await res.json().catch(() => null);
       if (createdProduct && createdProduct._id) {
         allProducts.push(createdProduct);
-        localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(allProducts));
       } else {
         await loadProducts();
       }
@@ -1875,7 +1830,6 @@ async function deleteProduct(id) {
     if (!res.ok) throw new Error(await getApiError(res, 'Failed to delete product'));
     showToast('Product deleted', 'success');
     allProducts = allProducts.filter(p => p._id !== id);
-    localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(allProducts));
     renderProducts();
     renderRatesTicker();
     loadAdminProducts();
@@ -1968,7 +1922,6 @@ async function saveEditProduct(e) {
       if (idx !== -1) {
         allProducts[idx] = { ...allProducts[idx], ...updatedProduct };
       }
-      localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(allProducts));
       showToast('Product updated successfully!', 'success');
       closeEditProduct();
       imageInput.value = '';
