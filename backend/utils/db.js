@@ -14,10 +14,13 @@ function getMongoErrorDetails(error) {
   if (message.includes('not authorized') || message.includes('not allowed') || error && (error.code === 13 || error.code === 8000)) {
     return { type: 'permissions', publicMessage: 'The MongoDB user is not authorized for this database operation.' };
   }
-  if (message.includes('timed out') || message.includes('server selection')) {
+  if (message.includes('ip that isn\'t whitelisted') || message.includes('ip address') || message.includes('whitelist')) {
+    return { type: 'network_allowlist', publicMessage: 'Your network IP is not allowlisted by MongoDB Atlas.' };
+  }
+  if (message.includes('timed out') || message.includes('server selection') || message.includes('could not connect to any servers')) {
     return { type: 'connection_timeout', publicMessage: 'MongoDB could not be reached before the connection timeout.' };
   }
-  if (message.includes('dns') || message.includes('enotfound') || message.includes('ssl') || message.includes('tls')) {
+  if (message.includes('dns') || message.includes('enotfound') || message.includes('ssl') || message.includes('tls') || message.includes('econnrefused')) {
     return { type: 'network', publicMessage: 'MongoDB network or TLS configuration could not be reached.' };
   }
   return { type: 'database_error', publicMessage: 'A database operation failed.' };

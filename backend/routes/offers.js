@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Offer = require('../models/Offer');
 const verifyAdmin = require('../middleware/auth');
-const { isDbConnected } = require('../utils/db');
+const { isDbConnected, requireDatabaseForVercel } = require('../utils/db');
 
 // Demo offers fallback — 4 Telugu festival templates
 const DEMO_OFFERS = [
@@ -87,14 +87,17 @@ router.get('/all', verifyAdmin, async (req, res) => {
 });
 
 // POST new offer (admin)
-router.post('/', verifyAdmin, async (req, res) => {
+router.post('/', verifyAdmin, requireDatabaseForVercel, async (req, res) => {
   try {
     if (isDbConnected()) {
       const offer = await Offer.create(req.body);
       return res.status(201).json(offer);
     }
-    throw new Error('db offline');
   } catch (e) {
+    return res.status(500).json({ error: `Database save failed: ${e.message}` });
+  }
+
+  {
     const newOffer = {
       _id: 'of-' + Date.now(),
       template: 'dussehra',
@@ -107,18 +110,21 @@ router.post('/', verifyAdmin, async (req, res) => {
       createdAt: new Date()
     };
     DEMO_OFFERS.push(newOffer);
-    res.status(201).json(newOffer);
+    return res.status(201).json(newOffer);
   }
 });
 
 // PUT update offer (admin)
-router.put('/:id', verifyAdmin, async (req, res) => {
+router.put('/:id', verifyAdmin, requireDatabaseForVercel, async (req, res) => {
   try {
     if (isDbConnected()) {
       const offer = await Offer.findByIdAndUpdate(req.params.id, req.body, { new: true });
       if (offer) return res.json(offer);
+      return res.status(404).json({ error: 'Offer not found' });
     }
-  } catch (e) {}
+  } catch (e) {
+    return res.status(500).json({ error: `Database update failed: ${e.message}` });
+  }
   const demo = DEMO_OFFERS.find(o => o._id === req.params.id);
   if (demo) {
     Object.assign(demo, req.body);
@@ -128,13 +134,22 @@ router.put('/:id', verifyAdmin, async (req, res) => {
 });
 
 // DELETE offer (admin)
-router.delete('/:id', verifyAdmin, async (req, res) => {
+router.delete('/:id', verifyAdmin, requireDatabaseForVercel, async (req, res) => {
   try {
-    if (isDbConnected()) await Offer.findByIdAndDelete(req.params.id);
-  } catch (e) {}
+    if (isDbConnected()) {
+      const offer = await Offer.findByIdAndDelete(req.params.id);
+      if (offer) return res.json({ success: true });
+      return res.status(404).json({ error: 'Offer not found' });
+    }
+  } catch (e) {
+    return res.status(500).json({ error: `Database delete failed: ${e.message}` });
+  }
   const idx = DEMO_OFFERS.findIndex(o => o._id === req.params.id);
-  if (idx !== -1) DEMO_OFFERS.splice(idx, 1);
-  res.json({ success: true });
+  if (idx !== -1) {
+    DEMO_OFFERS.splice(idx, 1);
+    return res.json({ success: true });
+  }
+  res.status(404).json({ error: 'Offer not found' });
 });
 
 module.exports = router;

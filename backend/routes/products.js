@@ -1,9 +1,24 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Product = require('../models/Product');
 const verifyAdmin = require('../middleware/auth');
 const upload = require('../middleware/upload');
-const { isDbConnected } = require('../utils/db');
+const { isDbConnected, requireDatabaseForVercel } = require('../utils/db');
+
+function rejectNonDatabaseProductId(req, res) {
+  if (mongoose.Types.ObjectId.isValid(req.params.id)) return false;
+
+  const isDemoProduct = DEMO_PRODUCTS.some(product => product._id === req.params.id);
+  if (isDemoProduct) {
+    res.status(409).json({
+      error: 'This demo product is not stored in MongoDB. Run "npm run seed" to create editable database products.'
+    });
+  } else {
+    res.status(404).json({ error: 'Product not found' });
+  }
+  return true;
+}
 
 function getUploadedImage(file) {
   if (file.secure_url) {
@@ -21,15 +36,6 @@ function getUploadedImage(file) {
     };
   }
   return { image: `/uploads/${file.filename}`, imagePublicId: '' };
-}
-
-function requireProductDatabase(req, res, next) {
-  if (process.env.VERCEL === '1' && !isDbConnected()) {
-    return res.status(503).json({
-      error: 'Product changes need a connected MongoDB database on Vercel. Cloudinary stores images, but product details are saved in MongoDB.'
-    });
-  }
-  next();
 }
 
 function handleProductImageUpload(req, res, next) {
@@ -85,7 +91,7 @@ router.get('/:id/image', async (req, res) => {
 });
 
 // POST new product (admin)
-router.post('/', verifyAdmin, requireProductDatabase, handleProductImageUpload, async (req, res) => {
+router.post('/', verifyAdmin, requireDatabaseForVercel, handleProductImageUpload, async (req, res) => {
   try {
     const data = { ...req.body };
     if (req.file) {
@@ -126,13 +132,12 @@ router.post('/', verifyAdmin, requireProductDatabase, handleProductImageUpload, 
 });
 
 // PUT update product (admin)
-router.put('/:id', verifyAdmin, requireProductDatabase, handleProductImageUpload, async (req, res) => {
+router.put('/:id', verifyAdmin, requireDatabaseForVercel, handleProductImageUpload, async (req, res) => {
   try {
     const data = { ...req.body };
     if (req.file) {
       Object.assign(data, getUploadedImage(req.file));
       if (req.file.buffer) data.image = `/api/products/${req.params.id}/image`;
-      data.imageVersion = Date.now();
     } else {
       delete data.image;
       delete data.imagePublicId;
@@ -143,15 +148,31 @@ router.put('/:id', verifyAdmin, requireProductDatabase, handleProductImageUpload
 
     let product = null;
     if (isDbConnected()) {
+      if (rejectNonDatabaseProductId(req, res)) return;
       try {
-        product = await Product.findByIdAndUpdate(req.params.id, data, { new: true });
+        product = await Product.findById(req.params.id).select('+imageData');
+        if (!product) return res.status(404).json({ error: 'Product not found' });
+
+        if (req.file) {
+          data.imageVersion = Math.max(Date.now(), (product.imageVersion || 0) + 1);
+          if (!req.file.buffer) {
+            data.imageData = null;
+            data.imageContentType = '';
+          }
+        }
+
+        product.set(data);
+        await product.save();
       } catch (e) {
         return res.status(500).json({ error: `Database update failed: ${e.message}` });
       }
     }
 
     if (product) {
-      return res.json(product);
+      const response = product.toObject();
+      delete response.imageData;
+      delete response.imageContentType;
+      return res.json(response);
     }
 
     // Fallback: Update in-memory DEMO_PRODUCTS
@@ -168,18 +189,20 @@ router.put('/:id', verifyAdmin, requireProductDatabase, handleProductImageUpload
 });
 
 // PATCH toggle stock status (admin)
-router.patch('/:id/toggle-stock', verifyAdmin, async (req, res) => {
+router.patch('/:id/toggle-stock', verifyAdmin, requireDatabaseForVercel, async (req, res) => {
   try {
     if (isDbConnected()) {
+      if (rejectNonDatabaseProductId(req, res)) return;
       const product = await Product.findById(req.params.id);
       if (product) {
         product.inStock = !product.inStock;
         await product.save();
         return res.json(product);
       }
+      return res.status(404).json({ error: 'Product not found' });
     }
   } catch (e) {
-    // fallback for demo data
+    return res.status(500).json({ error: `Database update failed: ${e.message}` });
   }
   const demo = DEMO_PRODUCTS.find(p => p._id === req.params.id);
   if (demo) {
@@ -190,21 +213,23 @@ router.patch('/:id/toggle-stock', verifyAdmin, async (req, res) => {
 });
 
 // DELETE product (admin)
-router.delete('/:id', verifyAdmin, async (req, res) => {
+router.delete('/:id', verifyAdmin, requireDatabaseForVercel, async (req, res) => {
   try {
     if (isDbConnected()) {
-      try {
-        await Product.findByIdAndDelete(req.params.id);
-      } catch (_) {}
+      if (rejectNonDatabaseProductId(req, res)) return;
+      const product = await Product.findByIdAndDelete(req.params.id);
+      if (product) return res.json({ success: true });
+      return res.status(404).json({ error: 'Product not found' });
     }
 
     const index = DEMO_PRODUCTS.findIndex(p => p._id === req.params.id);
     if (index !== -1) {
       DEMO_PRODUCTS.splice(index, 1);
+      return res.json({ success: true });
     }
-    res.json({ success: true });
+    res.status(404).json({ error: 'Product not found' });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: `Database delete failed: ${e.message}` });
   }
 });
 

@@ -19,9 +19,14 @@ const demoProducts = [
 ];
 
 async function seedProducts() {
-  await Product.deleteMany({});
-  const result = await Product.insertMany(demoProducts);
-  console.log(`✅ Seeded ${result.length} products successfully`);
+  const result = await Product.bulkWrite(demoProducts.map(product => ({
+    updateOne: {
+      filter: { name: product.name },
+      update: { $setOnInsert: product },
+      upsert: true
+    }
+  })));
+  console.log(`Seeded ${result.upsertedCount} missing products; existing products were preserved.`);
   return result;
 }
 

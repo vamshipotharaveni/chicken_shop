@@ -4,6 +4,17 @@
 
 // ── Global State ──────────────────────────────────────
 const API_BASE = ''; // same-origin
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[character]);
+}
+
 let allProducts = [];
 let cart = JSON.parse(localStorage.getItem('jc_cart') || '[]');
 let shopSettings = {
@@ -18,6 +29,7 @@ let searchQuery = '';
 let allOrders = [];
 let orderFilter = 'all';
 let allOffers = [];
+let editImagePreviewUrl = '';
 
 const DEFAULT_DISPLAY_PHONE = '7993996127';
 const DEFAULT_ORDER_PHONE = '9160726658';
@@ -456,6 +468,11 @@ async function apiFetch(url, options = {}, timeout = 4000) {
   }
 }
 
+async function getApiError(res, fallback) {
+  const data = await res.json().catch(() => ({}));
+  return data.error || fallback;
+}
+
 // ── Load Products (called for admin refresh, not on initial load) ──
 async function loadProducts() {
   try {
@@ -642,17 +659,18 @@ function renderStorefrontOffers() {
     const tpl = OFFER_TEMPLATES[o.template] || OFFER_TEMPLATES.dussehra;
     const title = (currentLang === 'te' && o.textTelugu) ? o.textTelugu : (o.text || tpl.text);
     const desc = (currentLang === 'te' && o.descriptionTelugu) ? o.descriptionTelugu : (o.description || tpl.desc);
-    const badge = `${o.emoji || tpl.emoji} ${(currentLang === 'te' ? tpl.labelTe : tpl.label).toUpperCase()}`;
+    const badge = `${escapeHtml(o.emoji || tpl.emoji)} ${(currentLang === 'te' ? tpl.labelTe : tpl.label).toUpperCase()}`;
     const discount = o.discount || tpl.discount;
+    const templateClass = OFFER_TEMPLATES[o.template] ? o.template : 'dussehra';
     return `
-      <div class="bb-offer-card tpl-${o.template || 'dussehra'}">
+      <div class="bb-offer-card tpl-${templateClass}">
         <div class="bb-offer-top">
           <span class="bb-card-badge">${badge}</span>
-          <span class="bb-discount-pill">${discount}</span>
+          <span class="bb-discount-pill">${escapeHtml(discount)}</span>
         </div>
         <div class="bb-offer-body">
-          <h3 class="bb-card-title">${title}</h3>
-          <p class="bb-card-desc">${desc}</p>
+          <h3 class="bb-card-title">${escapeHtml(title)}</h3>
+          <p class="bb-card-desc">${escapeHtml(desc)}</p>
         </div>
         <div class="bb-offer-footer">
           <span class="bb-coupon-tag"><i class="fas fa-tag"></i> ${currentLang === 'te' ? 'పండుగ ఆఫర్' : 'FESTIVAL OFFER'}</span>
@@ -682,7 +700,7 @@ function renderRatesTicker() {
     const unitLabel = currentLang === 'te' ? (p.unit === 'kg' ? 'కిలో' : 'పీస్') : p.unit;
     return `
       <span class="rate-item">
-        <span class="rate-name">${displayName}</span>
+        <span class="rate-name">${escapeHtml(displayName)}</span>
         <span class="rate-price">₹${p.pricePerKg}/${unitLabel}</span>
         <span class="rate-separator">●</span>
       </span>
@@ -751,30 +769,30 @@ function renderProducts() {
     const unitText = currentLang === 'te' ? (p.unit === 'kg' ? 'కిలో' : 'పీస్') : p.unit;
 
     return `
-      <div class="product-card ${!p.inStock ? 'out-of-stock' : ''} ${isShopClosed ? 'shop-closed-card' : ''}" data-id="${p._id}" onclick="buyNow('${p._id}')">
+      <div class="product-card ${!p.inStock ? 'out-of-stock' : ''} ${isShopClosed ? 'shop-closed-card' : ''}" data-id="${escapeHtml(p._id)}" onclick="buyNow('${escapeHtml(p._id)}')">
         <div class="product-card-image">
-          <img src="${productImageSrc(p)}" alt="${productName}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22><rect fill=%22%231A1A2E%22 width=%22400%22 height=%22300%22/><text x=%22200%22 y=%22160%22 text-anchor=%22middle%22 fill=%22%234A4A5A%22 font-size=%2260%22>🍗</text></svg>'">
+          <img src="${escapeHtml(productImageSrc(p))}" alt="${escapeHtml(productName)}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 400 300%22><rect fill=%22%231A1A2E%22 width=%22400%22 height=%22300%22/><text x=%22200%22 y=%22160%22 text-anchor=%22middle%22 fill=%22%234A4A5A%22 font-size=%2260%22>🍗</text></svg>'">
           <span class="stock-badge ${isShopClosed ? 'shop-closed-badge' : (p.inStock ? 'in-stock' : 'out-of-stock-badge')}">${stockStatusText}</span>
         </div>
         <div class="product-card-body">
-          <div class="product-name ${currentLang === 'te' ? 'telugu-font' : ''}">${productName}</div>
-          <p class="product-description">${productDesc}</p>
+          <div class="product-name ${currentLang === 'te' ? 'telugu-font' : ''}">${escapeHtml(productName)}</div>
+          <p class="product-description">${escapeHtml(productDesc)}</p>
           <div class="price-tag">
             <span class="price-symbol">₹</span>
-            <span class="price-amount">${p.pricePerKg}</span>
-            <span class="price-unit">/ ${unitText}</span>
+            <span class="price-amount">${escapeHtml(p.pricePerKg)}</span>
+            <span class="price-unit">/ ${escapeHtml(unitText)}</span>
           </div>
           <div class="quantity-control" onclick="event.stopPropagation()">
-            <button class="qty-btn" onclick="event.stopPropagation(); changeQty('${p._id}', -${step})" ${isDisabled ? 'disabled' : ''} aria-label="Decrease quantity">
+            <button class="qty-btn" onclick="event.stopPropagation(); changeQty('${escapeHtml(p._id)}', -${step})" ${isDisabled ? 'disabled' : ''} aria-label="Decrease quantity">
               <i class="fas fa-minus"></i>
             </button>
-            <input type="number" class="qty-input" id="qty-${p._id}" value="${defaultQty}" min="${minQty}" step="${step}" ${isDisabled ? 'disabled' : ''} aria-label="Quantity">
-            <button class="qty-btn" onclick="event.stopPropagation(); changeQty('${p._id}', ${step})" ${isDisabled ? 'disabled' : ''} aria-label="Increase quantity">
+            <input type="number" class="qty-input" id="qty-${escapeHtml(p._id)}" value="${defaultQty}" min="${minQty}" step="${step}" ${isDisabled ? 'disabled' : ''} aria-label="Quantity">
+            <button class="qty-btn" onclick="event.stopPropagation(); changeQty('${escapeHtml(p._id)}', ${step})" ${isDisabled ? 'disabled' : ''} aria-label="Increase quantity">
               <i class="fas fa-plus"></i>
             </button>
-            <span class="qty-unit">${unitText}</span>
+            <span class="qty-unit">${escapeHtml(unitText)}</span>
           </div>
-          <button class="add-to-cart-btn" onclick="event.stopPropagation(); buyNow('${p._id}')" ${isDisabled ? 'disabled' : ''}>
+          <button class="add-to-cart-btn" onclick="event.stopPropagation(); buyNow('${escapeHtml(p._id)}')" ${isDisabled ? 'disabled' : ''}>
             <i class="fas ${isShopClosed ? 'fa-store-slash' : 'fa-bolt'}"></i> ${buttonText}
           </button>
         </div>
@@ -920,18 +938,18 @@ function updateCartUI() {
       const displayName = (currentLang === 'te' && item.nameTelugu) ? item.nameTelugu : item.name;
       const unitText = currentLang === 'te' ? (item.unit === 'kg' ? 'కిలో' : 'పీస్') : item.unit;
       return `
-        <div class="cart-item" data-id="${item.productId}">
+        <div class="cart-item" data-id="${escapeHtml(item.productId)}">
           <div class="cart-item-info">
-            <div class="cart-item-name ${currentLang === 'te' ? 'telugu-font' : ''}">${displayName}</div>
-            <div class="cart-item-meta">${item.quantity} ${unitText} × ₹${item.pricePerKg}/${unitText}</div>
+            <div class="cart-item-name ${currentLang === 'te' ? 'telugu-font' : ''}">${escapeHtml(displayName)}</div>
+            <div class="cart-item-meta">${escapeHtml(item.quantity)} ${escapeHtml(unitText)} × ₹${escapeHtml(item.pricePerKg)}/${escapeHtml(unitText)}</div>
           </div>
           <div class="cart-item-actions">
-            <button class="qty-btn" onclick="updateCartItemQty('${item.productId}', -${step(item.unit)})" aria-label="Reduce"><i class="fas fa-minus"></i></button>
-            <span class="qty-display">${item.quantity}</span>
-            <button class="qty-btn" onclick="updateCartItemQty('${item.productId}', ${step(item.unit)})" aria-label="Increase"><i class="fas fa-plus"></i></button>
+            <button class="qty-btn" onclick="updateCartItemQty('${escapeHtml(item.productId)}', -${step(item.unit)})" aria-label="Reduce"><i class="fas fa-minus"></i></button>
+            <span class="qty-display">${escapeHtml(item.quantity)}</span>
+            <button class="qty-btn" onclick="updateCartItemQty('${escapeHtml(item.productId)}', ${step(item.unit)})" aria-label="Increase"><i class="fas fa-plus"></i></button>
           </div>
-          <div class="cart-item-price">₹${item.subtotal.toFixed(0)}</div>
-          <button class="cart-item-remove" onclick="removeFromCart('${item.productId}')" aria-label="Remove item"><i class="fas fa-trash-alt"></i></button>
+          <div class="cart-item-price">₹${escapeHtml(item.subtotal.toFixed(0))}</div>
+          <button class="cart-item-remove" onclick="removeFromCart('${escapeHtml(item.productId)}')" aria-label="Remove item"><i class="fas fa-trash-alt"></i></button>
         </div>
       `;
     }).join('');
@@ -1126,7 +1144,11 @@ function showToast(message, type = 'info') {
 
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i> <span>${message}</span>`;
+  const icon = document.createElement('i');
+  icon.className = `fas ${icons[type] || icons.info}`;
+  const text = document.createElement('span');
+  text.textContent = message;
+  toast.append(icon, text);
   toastContainer.appendChild(toast);
 
   setTimeout(() => {
@@ -1366,11 +1388,11 @@ async function loadAdminProducts() {
 
   tbody.innerHTML = allProducts.map(p => `
     <tr>
-      <td><img src="${productImageSrc(p)}" alt="${p.name}" style="width:48px;height:38px;object-fit:cover;border-radius:6px;" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 38%22><rect fill=%22%23222%22 width=%2248%22 height=%2238%22/><text x=%2224%22 y=%2224%22 text-anchor=%22middle%22 fill=%22%23666%22 font-size=%2216%22>🍗</text></svg>'"></td>
-      <td style="color:var(--text-primary);font-weight:700;">${p.name}</td>
-      <td class="telugu-font">${p.nameTelugu || '-'}</td>
-      <td><span style="background:var(--bg-surface-elevated);padding:3px 8px;border-radius:6px;font-size:0.75rem;">${p.category}</span></td>
-      <td style="color:var(--primary);font-weight:800;">₹${p.pricePerKg}</td>
+      <td><img src="${escapeHtml(productImageSrc(p))}" alt="${escapeHtml(p.name)}" style="width:48px;height:38px;object-fit:cover;border-radius:6px;" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 48 38%22><rect fill=%22%23222%22 width=%2248%22 height=%2238%22/><text x=%2224%22 y=%2224%22 text-anchor=%22middle%22 fill=%22%23666%22 font-size=%2216%22>🍗</text></svg>'"></td>
+      <td style="color:var(--text-primary);font-weight:700;">${escapeHtml(p.name)}</td>
+      <td class="telugu-font">${escapeHtml(p.nameTelugu || '-')}</td>
+      <td><span style="background:var(--bg-surface-elevated);padding:3px 8px;border-radius:6px;font-size:0.75rem;">${escapeHtml(p.category)}</span></td>
+      <td style="color:var(--primary);font-weight:800;">₹${escapeHtml(p.pricePerKg)}</td>
       <td>
         <!-- Quick One-Click Stock Toggle Button (User Requirement) -->
         <button class="stock-toggle-btn ${p.inStock ? 'in-stock' : 'out-stock'}" onclick="toggleProductStock('${p._id}')" title="Click to switch status">
@@ -1392,27 +1414,25 @@ async function toggleProductStock(id) {
   if (!product) return;
 
   const newStockStatus = !product.inStock;
-  product.inStock = newStockStatus;
-  localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(allProducts));
-
-  // Optimistic UI updates
-  renderProducts();
-  renderRatesTicker();
-  loadAdminProducts();
-
   try {
-    await fetch(API_BASE + `/api/products/${id}/toggle-stock`, {
+    const res = await fetch(API_BASE + `/api/products/${id}/toggle-stock`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': adminToken
       }
     });
+    if (!res.ok) throw new Error(await getApiError(res, 'Failed to update stock'));
+    const updatedProduct = await res.json();
+    Object.assign(product, updatedProduct);
+    localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(allProducts));
+    renderProducts();
+    renderRatesTicker();
+    loadAdminProducts();
+    showToast(`${product.name} is now ${product.inStock ? 'IN STOCK' : 'OUT OF STOCK / DISABLED'}`, product.inStock ? 'success' : 'error');
   } catch (err) {
-    // fallback
+    showToast(err.message || 'Failed to update stock', 'error');
   }
-
-  showToast(`${product.name} is now ${newStockStatus ? 'IN STOCK' : 'OUT OF STOCK / DISABLED'}`, newStockStatus ? 'success' : 'error');
 }
 
 // ── Admin Orders with Direct House Navigation ─────────
@@ -1423,10 +1443,11 @@ async function loadAdminOrders() {
     const res = await fetch(API_BASE + '/api/orders', {
       headers: { 'Authorization': adminToken }
     });
+    if (!res.ok) throw new Error(await getApiError(res, 'Could not load orders'));
     allOrders = await res.json();
     renderAdminOrders();
   } catch (e) {
-    container.innerHTML = '<p style="color:var(--text-muted);padding:20px;">Could not load orders.</p>';
+    container.textContent = e.message || 'Could not load orders.';
   }
 }
 
@@ -1458,11 +1479,11 @@ function renderAdminOrders() {
       <div class="order-card-box">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
           <div>
-            <strong style="font-size:1.05rem;color:var(--text-primary);">${o.customerName || 'Customer'}</strong>
+            <strong style="font-size:1.05rem;color:var(--text-primary);">${escapeHtml(o.customerName || 'Customer')}</strong>
             <span style="font-size:0.8rem;color:var(--text-muted);margin-left:8px;">${new Date(o.createdAt || Date.now()).toLocaleString()}</span>
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <span class="order-status-badge ${o.status || 'pending'}">${(o.status || 'pending').toUpperCase()}</span>
+            <span class="order-status-badge ${['pending', 'confirmed', 'cancelled'].includes(o.status) ? o.status : 'pending'}">${escapeHtml((o.status || 'pending').toUpperCase())}</span>
             <select class="form-input" style="width:auto;padding:4px 8px;font-size:0.78rem;" onchange="updateOrderStatus('${o._id}', this.value)">
               <option value="pending" ${o.status === 'pending' ? 'selected' : ''}>Pending</option>
               <option value="confirmed" ${o.status === 'confirmed' ? 'selected' : ''}>Confirmed</option>
@@ -1472,15 +1493,15 @@ function renderAdminOrders() {
         </div>
 
         <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:8px;">
-          📱 <strong>Phone:</strong> <a href="tel:${o.customerPhone}" style="color:var(--primary);text-decoration:none;">${o.customerPhone || '-'}</a>
+          📱 <strong>Phone:</strong> <a href="tel:${escapeHtml(o.customerPhone)}" style="color:var(--primary);text-decoration:none;">${escapeHtml(o.customerPhone || '-')}</a>
           <br>
-          📍 <strong>Address:</strong> ${o.deliveryAddress || 'No address provided'}
+          📍 <strong>Address:</strong> ${escapeHtml(o.deliveryAddress || 'No address provided')}
         </div>
 
         <!-- Direct Clickable Google Maps Navigation Link (User Requirement) -->
         ${navUrl ? `
           <div style="margin: 10px 0;">
-            <a href="${navUrl}" target="_blank" class="nav-to-customer-btn">
+            <a href="${escapeHtml(navUrl)}" target="_blank" rel="noopener noreferrer" class="nav-to-customer-btn">
               <i class="fas fa-location-arrow"></i> Navigate to Customer's House (Google Maps)
             </a>
           </div>
@@ -1488,14 +1509,14 @@ function renderAdminOrders() {
 
         <div style="background:var(--bg-surface-elevated);border-radius:8px;padding:10px;margin-top:10px;font-size:0.82rem;">
           <div style="font-weight:700;margin-bottom:4px;color:var(--text-primary);">Order Items:</div>
-          ${(o.items || []).map(it => `<div>• <strong>${it.name}</strong>: ${it.quantity} ${it.unit} × ₹${it.pricePerKg} = ₹${it.subtotal}</div>`).join('')}
+          ${(o.items || []).map(it => `<div>• <strong>${escapeHtml(it.name)}</strong>: ${escapeHtml(it.quantity)} ${escapeHtml(it.unit)} × ₹${escapeHtml(it.pricePerKg)} = ₹${escapeHtml(it.subtotal)}</div>`).join('')}
         </div>
 
-        ${o.specifications && o.specifications.length > 0 ? `<div style="margin-top:8px;font-size:0.78rem;color:var(--accent-green-dark);">🔪 <strong>Preferences:</strong> ${o.specifications.join(', ')}</div>` : ''}
-        ${o.notes ? `<div style="margin-top:4px;font-size:0.78rem;color:var(--text-muted);">📝 <strong>Notes:</strong> ${o.notes}</div>` : ''}
+        ${o.specifications && o.specifications.length > 0 ? `<div style="margin-top:8px;font-size:0.78rem;color:var(--accent-green-dark);">🔪 <strong>Preferences:</strong> ${o.specifications.map(escapeHtml).join(', ')}</div>` : ''}
+        ${o.notes ? `<div style="margin-top:4px;font-size:0.78rem;color:var(--text-muted);">📝 <strong>Notes:</strong> ${escapeHtml(o.notes)}</div>` : ''}
 
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-subtle);">
-          <span style="font-weight:800;color:var(--primary);font-size:1.1rem;font-family:'Outfit',sans-serif;">Total: ₹${o.totalAmount || 0}</span>
+          <span style="font-weight:800;color:var(--primary);font-size:1.1rem;font-family:'Outfit',sans-serif;">Total: ₹${escapeHtml(o.totalAmount || 0)}</span>
           <button class="admin-action-btn delete" onclick="deleteOrder('${o._id}')" title="Delete Order"><i class="fas fa-trash-alt"></i></button>
         </div>
       </div>
@@ -1505,7 +1526,7 @@ function renderAdminOrders() {
 
 async function updateOrderStatus(orderId, status) {
   try {
-    await fetch(API_BASE + `/api/orders/${orderId}/status`, {
+    const res = await fetch(API_BASE + `/api/orders/${orderId}/status`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -1513,27 +1534,29 @@ async function updateOrderStatus(orderId, status) {
       },
       body: JSON.stringify({ status })
     });
+    if (!res.ok) throw new Error(await getApiError(res, 'Failed to update order status'));
     const order = allOrders.find(o => o._id === orderId);
     if (order) order.status = status;
     renderAdminOrders();
     showToast(`Order status updated to ${status}!`, 'success');
   } catch (e) {
-    showToast('Failed to update order status', 'error');
+    showToast(e.message || 'Failed to update order status', 'error');
   }
 }
 
 async function deleteOrder(orderId) {
   if (!confirm('Are you sure you want to delete this order?')) return;
   try {
-    await fetch(API_BASE + `/api/orders/${orderId}`, {
+    const res = await fetch(API_BASE + `/api/orders/${orderId}`, {
       method: 'DELETE',
       headers: { 'Authorization': adminToken }
     });
+    if (!res.ok) throw new Error(await getApiError(res, 'Failed to delete order'));
     allOrders = allOrders.filter(o => o._id !== orderId);
     renderAdminOrders();
     showToast('Order removed', 'success');
   } catch (e) {
-    showToast('Failed to delete order', 'error');
+    showToast(e.message || 'Failed to delete order', 'error');
   }
 }
 
@@ -1545,9 +1568,12 @@ async function loadAdminOffers() {
     const res = await fetch(API_BASE + '/api/offers/all', {
       headers: { 'Authorization': adminToken }
     });
+    if (!res.ok) throw new Error(await getApiError(res, 'Could not load offers'));
     allOffers = await res.json();
   } catch (e) {
     allOffers = [];
+    container.textContent = e.message || 'Could not load offers.';
+    return;
   }
   renderAdminOffers();
 }
@@ -1565,11 +1591,11 @@ function renderAdminOffers() {
     <div class="order-card-box" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
       <div style="flex:1;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-          <span style="font-size:1.3rem;">${o.emoji || '🔥'}</span>
-          <strong style="color:var(--text-primary);font-size:0.95rem;">${o.text || ''}</strong>
+          <span style="font-size:1.3rem;">${escapeHtml(o.emoji || '🔥')}</span>
+          <strong style="color:var(--text-primary);font-size:0.95rem;">${escapeHtml(o.text || '')}</strong>
         </div>
-        ${o.textTelugu ? `<div class="telugu-font" style="font-size:0.82rem;color:var(--text-muted);margin-left:36px;">${o.textTelugu}</div>` : ''}
-        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;margin-left:36px;">Order: ${o.displayOrder || 0} · ${o.active !== false ? '✅ Active' : '❌ Inactive'}</div>
+        ${o.textTelugu ? `<div class="telugu-font" style="font-size:0.82rem;color:var(--text-muted);margin-left:36px;">${escapeHtml(o.textTelugu)}</div>` : ''}
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;margin-left:36px;">Order: ${escapeHtml(o.displayOrder || 0)} · ${o.active !== false ? '✅ Active' : '❌ Inactive'}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
         <button class="admin-action-btn ${o.active !== false ? 'edit' : 'delete'}" onclick="toggleOfferStatus('${o._id}')" title="${o.active !== false ? 'Deactivate' : 'Activate'}">
@@ -1614,14 +1640,13 @@ async function addOffer(e) {
       },
       body: JSON.stringify(offerData)
     });
+    if (!res.ok) throw new Error(await getApiError(res, 'Failed to add offer'));
     const newOffer = await res.json();
     allOffers.push(newOffer);
     showToast('New offer added!', 'success');
   } catch (err) {
-    // Offline fallback
-    offerData._id = 'of-' + Date.now();
-    allOffers.push(offerData);
-    showToast('Offer added locally (offline mode)', 'info');
+    showToast(err.message || 'Failed to add offer', 'error');
+    return;
   }
 
   // Reset form
@@ -1641,7 +1666,7 @@ async function toggleOfferStatus(id) {
   renderAdminOffers();
 
   try {
-    await fetch(API_BASE + `/api/offers/${id}`, {
+    const res = await fetch(API_BASE + `/api/offers/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -1649,23 +1674,31 @@ async function toggleOfferStatus(id) {
       },
       body: JSON.stringify({ active: newStatus })
     });
+    if (!res.ok) throw new Error(await getApiError(res, 'Failed to update offer'));
+    offer.active = newStatus;
+    renderAdminOffers();
+    showToast(`Offer ${newStatus ? 'activated' : 'deactivated'}`, newStatus ? 'success' : 'info');
   } catch (err) {
-    // offline fallback already handled optimistically
+    offer.active = !newStatus;
+    renderAdminOffers();
+    showToast(err.message || 'Failed to update offer', 'error');
   }
-  showToast(`Offer ${newStatus ? 'activated' : 'deactivated'}`, newStatus ? 'success' : 'info');
 }
 
 async function deleteOffer(id) {
   if (!confirm('Delete this offer?')) return;
   try {
-    await fetch(API_BASE + `/api/offers/${id}`, {
+    const res = await fetch(API_BASE + `/api/offers/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': adminToken }
     });
-  } catch (err) {}
-  allOffers = allOffers.filter(o => o._id !== id);
-  renderAdminOffers();
-  showToast('Offer deleted', 'success');
+    if (!res.ok) throw new Error(await getApiError(res, 'Failed to delete offer'));
+    allOffers = allOffers.filter(o => o._id !== id);
+    renderAdminOffers();
+    showToast('Offer deleted', 'success');
+  } catch (err) {
+    showToast(err.message || 'Failed to delete offer', 'error');
+  }
 }
 
 // ── Admin Product CRUD ────────────────────────────────
@@ -1695,60 +1728,21 @@ async function addProduct(e) {
       renderRatesTicker();
       loadAdminProducts();
     } else {
-      // If API fails, add locally anyway
-      const newProduct = {
-        _id: 'd' + Date.now(),
-        name: formData.get('name') || '',
-        nameTelugu: formData.get('nameTelugu') || '',
-        pricePerKg: Number(formData.get('pricePerKg')) || 0,
-        category: formData.get('category') || 'whole',
-        unit: formData.get('unit') || 'kg',
-        displayOrder: Number(formData.get('displayOrder')) || 0,
-        description: formData.get('description') || '',
-        descriptionTelugu: formData.get('descriptionTelugu') || '',
-        inStock: form.inStock.checked,
-        image: '/images/full_chicken.svg'
-      };
-      allProducts.push(newProduct);
-      localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(allProducts));
-      showToast('Product added locally!', 'success');
-      form.reset();
-      renderProducts();
-      renderRatesTicker();
-      loadAdminProducts();
+      showToast(await getApiError(res, 'Failed to add product'), 'error');
     }
   } catch (e) {
-    // Network error: add locally with generated ID
-    const newProduct = {
-      _id: 'd' + Date.now(),
-      name: formData.get('name') || '',
-      nameTelugu: formData.get('nameTelugu') || '',
-      pricePerKg: Number(formData.get('pricePerKg')) || 0,
-      category: formData.get('category') || 'whole',
-      unit: formData.get('unit') || 'kg',
-      displayOrder: Number(formData.get('displayOrder')) || 0,
-      description: formData.get('description') || '',
-      descriptionTelugu: formData.get('descriptionTelugu') || '',
-      inStock: form.inStock.checked,
-      image: '/images/full_chicken.svg'
-    };
-    allProducts.push(newProduct);
-    localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(allProducts));
-    showToast('Product added locally (offline mode)', 'info');
-    form.reset();
-    renderProducts();
-    renderRatesTicker();
-    loadAdminProducts();
+    showToast(e.message || 'Failed to add product', 'error');
   }
 }
 
 async function deleteProduct(id) {
   if (!confirm('Are you sure you want to delete this product?')) return;
   try {
-    await fetch(API_BASE + `/api/products/${id}`, {
+    const res = await fetch(API_BASE + `/api/products/${id}`, {
       method: 'DELETE',
       headers: { 'Authorization': adminToken }
     });
+    if (!res.ok) throw new Error(await getApiError(res, 'Failed to delete product'));
     showToast('Product deleted', 'success');
     allProducts = allProducts.filter(p => p._id !== id);
     localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(allProducts));
@@ -1756,13 +1750,7 @@ async function deleteProduct(id) {
     renderRatesTicker();
     loadAdminProducts();
   } catch (e) {
-    // Network error: delete locally
-    allProducts = allProducts.filter(p => p._id !== id);
-    localStorage.setItem(CACHED_PRODUCTS_KEY, JSON.stringify(allProducts));
-    renderProducts();
-    renderRatesTicker();
-    loadAdminProducts();
-    showToast('Product deleted locally (offline mode)', 'info');
+    showToast(e.message || 'Failed to delete product', 'error');
   }
 }
 
@@ -1781,11 +1769,25 @@ function openEditProduct(id) {
   $('#edit-descriptionTelugu').value = product.descriptionTelugu || '';
   $('#edit-inStock').checked = product.inStock !== false;
 
+  const imageInput = $('#edit-image');
+  const preview = $('#edit-image-preview');
+  if (editImagePreviewUrl) URL.revokeObjectURL(editImagePreviewUrl);
+  editImagePreviewUrl = '';
+  imageInput.value = '';
+  if (preview) {
+    preview.style.display = 'block';
+    preview.src = productImageSrc(product);
+  }
+
   $('#edit-product-modal').classList.add('active');
 }
 
 function closeEditProduct() {
   $('#edit-product-modal').classList.remove('active');
+  const preview = $('#edit-image-preview');
+  if (editImagePreviewUrl) URL.revokeObjectURL(editImagePreviewUrl);
+  editImagePreviewUrl = '';
+  if (preview) preview.style.display = 'none';
 }
 
 async function saveEditProduct(e) {
@@ -1806,7 +1808,19 @@ async function saveEditProduct(e) {
 
   const imageInput = $('#edit-image');
   if (imageInput.files.length > 0) {
-    formData.append('image', imageInput.files[0]);
+    const image = imageInput.files[0];
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(image.type)) {
+      showToast('Only JPG, PNG, and WebP images are allowed', 'error');
+      imageInput.focus();
+      return;
+    }
+    if (image.size > 10 * 1024 * 1024) {
+      showToast('Image must be 10 MB or smaller', 'error');
+      imageInput.focus();
+      return;
+    }
+    formData.append('image', image);
   }
 
   saveButton.disabled = true;
@@ -1949,6 +1963,19 @@ function bindEvents() {
     if (e.target === editModal) closeEditProduct();
   });
   if (editForm) editForm.addEventListener('submit', saveEditProduct);
+
+  const editImageInput = $('#edit-image');
+  const editImagePreview = $('#edit-image-preview');
+  if (editImageInput && editImagePreview) {
+    editImageInput.addEventListener('change', () => {
+      const file = editImageInput.files[0];
+      if (!file) return;
+      if (editImagePreviewUrl) URL.revokeObjectURL(editImagePreviewUrl);
+      editImagePreviewUrl = URL.createObjectURL(file);
+      editImagePreview.src = editImagePreviewUrl;
+      editImagePreview.style.display = 'block';
+    });
+  }
 
   // Escape key listener
   document.addEventListener('keydown', (e) => {

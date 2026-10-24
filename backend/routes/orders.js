@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const Order = require('../models/Order');
-const { isDbConnected } = require('../utils/db');
+const verifyAdmin = require('../middleware/auth');
+const { isDbConnected, requireDatabaseForVercel } = require('../utils/db');
 
 const DEMO_ORDERS = [];
 const MAX_STORED_ORDERS = 10;
@@ -15,7 +16,7 @@ async function trimStoredOrders() {
 }
 
 // POST save order (public)
-router.post('/', async (req, res) => {
+router.post('/', requireDatabaseForVercel, async (req, res) => {
   const address = (req.body.deliveryAddress || '').trim();
   if (!address) {
     return res.status(400).json({ error: 'Delivery location is required' });
@@ -31,6 +32,9 @@ router.post('/', async (req, res) => {
     if (e.message === 'Delivery location is required') {
       return res.status(400).json({ error: e.message });
     }
+    if (process.env.VERCEL === '1') {
+      return res.status(500).json({ error: `Database save failed: ${e.message}` });
+    }
     const offlineOrder = {
       _id: 'off-' + Date.now(),
       ...req.body,
@@ -44,29 +48,24 @@ router.post('/', async (req, res) => {
 });
 
 // GET all orders (admin)
-router.get('/', async (req, res) => {
+router.get('/', verifyAdmin, requireDatabaseForVercel, async (req, res) => {
   try {
-    const token = req.headers.authorization;
-    if (!token || token !== process.env.ADMIN_PASSWORD) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
     if (isDbConnected()) {
       const orders = await Order.find().sort({ createdAt: -1 }).limit(MAX_STORED_ORDERS);
       return res.json(orders);
     }
     return res.json(DEMO_ORDERS.slice(0, MAX_STORED_ORDERS));
   } catch (e) {
+    if (process.env.VERCEL === '1') {
+      return res.status(500).json({ error: `Database read failed: ${e.message}` });
+    }
     return res.json(DEMO_ORDERS.slice(0, MAX_STORED_ORDERS));
   }
 });
 
 // PUT update order status (admin)
-router.put('/:id/status', async (req, res) => {
+router.put('/:id/status', verifyAdmin, requireDatabaseForVercel, async (req, res) => {
   try {
-    const token = req.headers.authorization;
-    if (!token || token !== process.env.ADMIN_PASSWORD) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
     const { status } = req.body;
     if (isDbConnected()) {
       try {
@@ -76,7 +75,10 @@ router.put('/:id/status', async (req, res) => {
           { new: true }
         );
         if (order) return res.json(order);
-      } catch (err) {}
+        return res.status(404).json({ error: 'Order not found' });
+      } catch (err) {
+        return res.status(500).json({ error: `Database update failed: ${err.message}` });
+      }
     }
 
     const demo = DEMO_ORDERS.find(o => o._id === req.params.id);
@@ -91,22 +93,21 @@ router.put('/:id/status', async (req, res) => {
 });
 
 // DELETE order (admin)
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verifyAdmin, requireDatabaseForVercel, async (req, res) => {
   try {
-    const token = req.headers.authorization;
-    if (!token || token !== process.env.ADMIN_PASSWORD) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
     if (isDbConnected()) {
-      try {
-        await Order.findByIdAndDelete(req.params.id);
-      } catch (err) {}
+      const order = await Order.findByIdAndDelete(req.params.id);
+      if (order) return res.json({ success: true });
+      return res.status(404).json({ error: 'Order not found' });
     }
     const idx = DEMO_ORDERS.findIndex(o => o._id === req.params.id);
-    if (idx !== -1) DEMO_ORDERS.splice(idx, 1);
-    res.json({ success: true });
+    if (idx !== -1) {
+      DEMO_ORDERS.splice(idx, 1);
+      return res.json({ success: true });
+    }
+    return res.status(404).json({ error: 'Order not found' });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    res.status(500).json({ error: `Database delete failed: ${e.message}` });
   }
 });
 
