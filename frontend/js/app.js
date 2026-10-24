@@ -29,6 +29,8 @@ let searchQuery = '';
 let allOrders = [];
 let orderFilter = 'all';
 let allOffers = [];
+let offersLoaded = false;
+let editingOfferId = '';
 let editImagePreviewUrl = '';
 
 const DEFAULT_DISPLAY_PHONE = '7993996127';
@@ -268,7 +270,12 @@ async function init() {
   }
   const cachedOffers = localStorage.getItem(CACHED_OFFERS_KEY);
   if (cachedOffers) {
-    try { allOffers = JSON.parse(cachedOffers); } catch(e) { allOffers = getDefaultOffers(); }
+    try {
+      allOffers = JSON.parse(cachedOffers);
+      offersLoaded = Array.isArray(allOffers);
+    } catch(e) {
+      allOffers = getDefaultOffers();
+    }
   } else {
     allOffers = getDefaultOffers();
   }
@@ -324,13 +331,16 @@ async function refreshFromAPI() {
     localStorage.setItem(CACHED_SETTINGS_KEY, JSON.stringify(data));
     updateShopStatus();
     updateAnnouncement();
+    renderProducts();
   } catch(e) { /* Using defaults – no problem */ }
 
   try {
     const res = await fetchWithTimeout('/api/offers');
+    if (!res.ok) throw new Error(await getApiError(res, 'Could not load offers'));
     const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
+    if (Array.isArray(data)) {
       allOffers = data;
+      offersLoaded = true;
       localStorage.setItem(CACHED_OFFERS_KEY, JSON.stringify(data));
       renderStorefrontOffers();
     }
@@ -651,9 +661,11 @@ function renderStorefrontOffers() {
   const dotsWrap = $('#offers-dots');
   if (!track) return;
 
-  const source = Array.isArray(allOffers) && allOffers.length ? allOffers : getDefaultOffers();
+  const source = offersLoaded ? allOffers : getDefaultOffers();
   const offers = source.filter(o => o.active !== false).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
-  const list = offers.length ? offers : getDefaultOffers();
+  const list = offers;
+  const section = $('#offers-section');
+  if (section) section.style.display = list.length ? '' : 'none';
 
   track.innerHTML = list.map(o => {
     const tpl = OFFER_TEMPLATES[o.template] || OFFER_TEMPLATES.dussehra;
@@ -1026,6 +1038,10 @@ async function placeOrder() {
   const phone = $('#customer-phone').value.trim();
   const address = $('#customer-address').value.trim();
 
+  if (!shopSettings.shopOpen) {
+    showToast(currentLang === 'te' ? 'షాప్ ప్రస్తుతం మూసివేయబడింది' : 'Shop is currently closed. Ordering paused.', 'error');
+    return;
+  }
   if (cart.length === 0) {
     showToast(currentLang === 'te' ? 'మీ కార్ట్ ఖాళీగా ఉంది!' : 'Your cart is empty!', 'error');
     return;
@@ -1113,12 +1129,15 @@ async function placeOrder() {
       notes: notes,
       totalAmount: total
     };
-    await apiFetch('/api/orders', {
+    const res = await fetch(API_BASE + '/api/orders', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(orderData)
     });
+    if (!res.ok) throw new Error(await getApiError(res, 'Could not save your order'));
   } catch (e) {
-    // offline or backend fallback handled
+    showToast(e.message || 'Could not save your order. Please try again.', 'error');
+    return;
   }
 
   // Open WhatsApp only — clicking this is NOT an order confirmation
@@ -1377,9 +1396,12 @@ async function adminLoginHandler(e) {
 }
 
 async function loadAdminData() {
-  await loadAdminProducts();
-  await loadAdminOrders();
-  await loadAdminOffers();
+  await Promise.all([
+    loadAdminProducts(),
+    loadAdminOrders(),
+    loadAdminOffers(),
+    loadAdminSettings()
+  ]);
 }
 
 async function loadAdminProducts() {
@@ -1570,12 +1592,69 @@ async function loadAdminOffers() {
     });
     if (!res.ok) throw new Error(await getApiError(res, 'Could not load offers'));
     allOffers = await res.json();
+    offersLoaded = true;
+    localStorage.setItem(CACHED_OFFERS_KEY, JSON.stringify(allOffers));
+    renderStorefrontOffers();
   } catch (e) {
     allOffers = [];
     container.textContent = e.message || 'Could not load offers.';
     return;
   }
   renderAdminOffers();
+}
+
+async function loadAdminSettings() {
+  const form = $('#shop-settings-form');
+  if (!form) return;
+
+  try {
+    const res = await fetch(API_BASE + '/api/admin/settings');
+    if (!res.ok) throw new Error(await getApiError(res, 'Could not load shop settings'));
+    const settings = await res.json();
+    shopSettings = { ...shopSettings, ...settings };
+    $('#settings-shop-open').checked = shopSettings.shopOpen !== false;
+    $('#settings-shop-phone').value = shopSettings.shopPhone || '';
+    $('#settings-order-phone').value = shopSettings.orderPhone || '';
+    $('#settings-shop-address').value = shopSettings.shopAddress || '';
+    $('#settings-shop-message').value = shopSettings.shopMessage || '';
+  } catch (error) {
+    showToast(error.message || 'Could not load shop settings', 'error');
+  }
+}
+
+async function saveShopSettings(e) {
+  e.preventDefault();
+  const button = $('#save-shop-settings-btn');
+  const settings = {
+    shopOpen: $('#settings-shop-open').checked,
+    shopPhone: $('#settings-shop-phone').value.trim(),
+    orderPhone: $('#settings-order-phone').value.trim(),
+    shopAddress: $('#settings-shop-address').value.trim(),
+    shopMessage: $('#settings-shop-message').value.trim()
+  };
+
+  button.disabled = true;
+  try {
+    const res = await fetch(API_BASE + '/api/admin/settings', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': adminToken
+      },
+      body: JSON.stringify(settings)
+    });
+    if (!res.ok) throw new Error(await getApiError(res, 'Failed to save shop settings'));
+    shopSettings = { ...shopSettings, ...await res.json() };
+    localStorage.setItem(CACHED_SETTINGS_KEY, JSON.stringify(shopSettings));
+    updateShopStatus();
+    updateAnnouncement();
+    renderProducts();
+    showToast(`Shop settings saved. The shop is ${shopSettings.shopOpen ? 'open' : 'closed'}.`, 'success');
+  } catch (error) {
+    showToast(error.message || 'Failed to save shop settings', 'error');
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function renderAdminOffers() {
@@ -1595,10 +1674,13 @@ function renderAdminOffers() {
           <strong style="color:var(--text-primary);font-size:0.95rem;">${escapeHtml(o.text || '')}</strong>
         </div>
         ${o.textTelugu ? `<div class="telugu-font" style="font-size:0.82rem;color:var(--text-muted);margin-left:36px;">${escapeHtml(o.textTelugu)}</div>` : ''}
-        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;margin-left:36px;">Order: ${escapeHtml(o.displayOrder || 0)} · ${o.active !== false ? '✅ Active' : '❌ Inactive'}</div>
+        <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;margin-left:36px;">${escapeHtml(o.discount || '')} · Order: ${escapeHtml(o.displayOrder || 0)} · ${o.active !== false ? '✅ Active' : '❌ Inactive'}</div>
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0;">
-        <button class="admin-action-btn ${o.active !== false ? 'edit' : 'delete'}" onclick="toggleOfferStatus('${o._id}')" title="${o.active !== false ? 'Deactivate' : 'Activate'}">
+        <button class="admin-action-btn edit" onclick="editOffer('${o._id}')" title="Edit offer">
+          <i class="fas fa-edit"></i>
+        </button>
+        <button class="admin-action-btn ${o.active !== false ? 'edit' : 'delete'}" onclick="toggleOfferStatus('${o._id}')" title="${o.active !== false ? 'Disable' : 'Enable'}" ${o.updating ? 'disabled' : ''}>
           <i class="fas ${o.active !== false ? 'fa-eye-slash' : 'fa-eye'}"></i>
         </button>
         <button class="admin-action-btn delete" onclick="deleteOffer('${o._id}')" title="Delete Offer">
@@ -1628,41 +1710,81 @@ async function addOffer(e) {
 
   const offerData = {
     text, textTelugu, emoji, displayOrder, template, discount,
-    description, descriptionTelugu, active: true
+    description, descriptionTelugu,
+    active: editingOfferId
+      ? allOffers.find(offer => offer._id === editingOfferId)?.active !== false
+      : true
   };
 
   try {
-    const res = await fetch(API_BASE + '/api/offers', {
-      method: 'POST',
+    const isEditing = Boolean(editingOfferId);
+    const url = isEditing ? `/api/offers/${encodeURIComponent(editingOfferId)}` : '/api/offers';
+    const res = await fetch(API_BASE + url, {
+      method: isEditing ? 'PUT' : 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': adminToken
       },
       body: JSON.stringify(offerData)
     });
-    if (!res.ok) throw new Error(await getApiError(res, 'Failed to add offer'));
-    const newOffer = await res.json();
-    allOffers.push(newOffer);
-    showToast('New offer added!', 'success');
+    if (!res.ok) throw new Error(await getApiError(res, isEditing ? 'Failed to update offer' : 'Failed to add offer'));
+    const savedOffer = await res.json();
+    if (isEditing) {
+      allOffers = allOffers.map(offer => offer._id === editingOfferId ? savedOffer : offer);
+      showToast('Offer updated!', 'success');
+    } else {
+      allOffers.push(savedOffer);
+      showToast('New offer added!', 'success');
+    }
   } catch (err) {
-    showToast(err.message || 'Failed to add offer', 'error');
+    showToast(err.message || 'Failed to save offer', 'error');
     return;
   }
 
-  // Reset form
-  $('#offer-text-input').value = '';
-  $('#offer-text-te-input').value = '';
-  $('#offer-emoji-input').value = '🔥';
-  $('#offer-order-input').value = '0';
+  cancelOfferEdit();
+  offersLoaded = true;
+  localStorage.setItem(CACHED_OFFERS_KEY, JSON.stringify(allOffers));
+  renderStorefrontOffers();
   renderAdminOffers();
+}
+
+function editOffer(id) {
+  const offer = allOffers.find(item => item._id === id);
+  if (!offer) return;
+  editingOfferId = id;
+  const templateInput = document.querySelector(`input[name="offer-template"][value="${offer.template}"]`);
+  if (templateInput) templateInput.checked = true;
+  $$('.offer-tpl-option').forEach(option => option.classList.toggle('selected', option.querySelector('input').checked));
+  $('#offer-discount-input').value = offer.discount || '';
+  $('#offer-emoji-input').value = offer.emoji || '🔥';
+  $('#offer-text-input').value = offer.text || '';
+  $('#offer-text-te-input').value = offer.textTelugu || '';
+  $('#offer-desc-input').value = offer.description || '';
+  $('#offer-desc-te-input').value = offer.descriptionTelugu || '';
+  $('#offer-order-input').value = offer.displayOrder || 0;
+  $('#save-offer-btn').textContent = 'Save Offer';
+  $('#cancel-offer-edit-btn').style.display = 'inline-flex';
+  $('#offer-text-input').focus();
+}
+
+function cancelOfferEdit() {
+  editingOfferId = '';
+  const form = $('#add-offer-form');
+  if (form) form.reset();
+  const defaultTemplate = document.querySelector('input[name="offer-template"][value="dussehra"]');
+  if (defaultTemplate) defaultTemplate.checked = true;
+  $$('.offer-tpl-option').forEach(option => option.classList.toggle('selected', option.querySelector('input').checked));
+  $('#save-offer-btn').textContent = 'Add Offer';
+  $('#cancel-offer-edit-btn').style.display = 'none';
 }
 
 async function toggleOfferStatus(id) {
   const offer = allOffers.find(o => o._id === id);
-  if (!offer) return;
+  if (!offer || offer.updating) return;
 
+  const previousStatus = offer.active !== false;
   const newStatus = offer.active === false ? true : false;
-  offer.active = newStatus;
+  offer.updating = true;
   renderAdminOffers();
 
   try {
@@ -1675,11 +1797,16 @@ async function toggleOfferStatus(id) {
       body: JSON.stringify({ active: newStatus })
     });
     if (!res.ok) throw new Error(await getApiError(res, 'Failed to update offer'));
-    offer.active = newStatus;
+    const updatedOffer = await res.json();
+    Object.assign(offer, updatedOffer, { updating: false });
+    offersLoaded = true;
+    localStorage.setItem(CACHED_OFFERS_KEY, JSON.stringify(allOffers));
+    renderStorefrontOffers();
     renderAdminOffers();
     showToast(`Offer ${newStatus ? 'activated' : 'deactivated'}`, newStatus ? 'success' : 'info');
   } catch (err) {
-    offer.active = !newStatus;
+    offer.active = previousStatus;
+    offer.updating = false;
     renderAdminOffers();
     showToast(err.message || 'Failed to update offer', 'error');
   }
@@ -1694,6 +1821,9 @@ async function deleteOffer(id) {
     });
     if (!res.ok) throw new Error(await getApiError(res, 'Failed to delete offer'));
     allOffers = allOffers.filter(o => o._id !== id);
+    offersLoaded = true;
+    localStorage.setItem(CACHED_OFFERS_KEY, JSON.stringify(allOffers));
+    renderStorefrontOffers();
     renderAdminOffers();
     showToast('Offer deleted', 'success');
   } catch (err) {
@@ -1933,6 +2063,16 @@ function bindEvents() {
   // Admin offers form
   const addOfferForm = $('#add-offer-form');
   if (addOfferForm) addOfferForm.addEventListener('submit', addOffer);
+  const cancelOfferEditButton = $('#cancel-offer-edit-btn');
+  if (cancelOfferEditButton) cancelOfferEditButton.addEventListener('click', cancelOfferEdit);
+  $$('.offer-tpl-option input[name="offer-template"]').forEach(input => {
+    input.addEventListener('change', () => {
+      $$('.offer-tpl-option').forEach(option => option.classList.toggle('selected', option.querySelector('input').checked));
+    });
+  });
+
+  const shopSettingsForm = $('#shop-settings-form');
+  if (shopSettingsForm) shopSettingsForm.addEventListener('submit', saveShopSettings);
 
   // Admin tabs
   $$('.admin-tab').forEach(tab => {

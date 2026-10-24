@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const Settings = require('../models/Settings');
 const Order = require('../models/Order');
 const verifyAdmin = require('../middleware/auth');
 const { isDbConnected, requireDatabaseForVercel } = require('../utils/db');
@@ -17,13 +18,21 @@ async function trimStoredOrders() {
 
 // POST save order (public)
 router.post('/', requireDatabaseForVercel, async (req, res) => {
-  const address = (req.body.deliveryAddress || '').trim();
+  const body = req.body || {};
+  const address = typeof body.deliveryAddress === 'string' ? body.deliveryAddress.trim() : '';
   if (!address) {
     return res.status(400).json({ error: 'Delivery location is required' });
   }
+  if (!Array.isArray(body.items) || body.items.length === 0) {
+    return res.status(400).json({ error: 'Add at least one product before placing an order.' });
+  }
   try {
     if (isDbConnected()) {
-      const order = await Order.create(req.body);
+      const settings = await Settings.findOne().select('shopOpen');
+      if (settings && settings.shopOpen === false) {
+        return res.status(409).json({ error: 'The shop is currently closed and cannot accept orders.' });
+      }
+      const order = await Order.create(body);
       await trimStoredOrders();
       return res.status(201).json({ success: true, orderId: order._id });
     }
@@ -32,13 +41,16 @@ router.post('/', requireDatabaseForVercel, async (req, res) => {
     if (e.message === 'Delivery location is required') {
       return res.status(400).json({ error: e.message });
     }
+    if (isDbConnected()) {
+      return res.status(500).json({ error: `Database save failed: ${e.message}` });
+    }
     if (process.env.VERCEL === '1') {
       return res.status(500).json({ error: `Database save failed: ${e.message}` });
     }
     const offlineOrder = {
       _id: 'off-' + Date.now(),
-      ...req.body,
-      status: req.body.status || 'pending',
+      ...body,
+      status: body.status || 'pending',
       createdAt: new Date()
     };
     DEMO_ORDERS.unshift(offlineOrder);

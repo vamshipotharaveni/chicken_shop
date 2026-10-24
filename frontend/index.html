@@ -458,6 +458,7 @@
         <button class="admin-tab active" data-tab="products-tab"><i class="fas fa-box"></i> Products &amp; Stock</button>
         <button class="admin-tab" data-tab="orders-tab"><i class="fas fa-list-check"></i> Orders</button>
         <button class="admin-tab" data-tab="offers-tab"><i class="fas fa-bullhorn"></i> Offers</button>
+        <button class="admin-tab" data-tab="settings-tab"><i class="fas fa-store"></i> Shop Settings</button>
       </div>
 
       <!-- Products Tab -->
@@ -639,13 +640,49 @@
               <label>Display Order</label>
               <input type="number" id="offer-order-input" class="form-input" value="0" style="max-width:100px;">
             </div>
-            <button type="submit" class="admin-submit-btn" style="margin-top:12px;">Add Offer</button>
+            <div style="display:flex;gap:10px;margin-top:12px;">
+              <button type="submit" id="save-offer-btn" class="admin-submit-btn">Add Offer</button>
+              <button type="button" id="cancel-offer-edit-btn" class="admin-submit-btn" style="display:none;background:var(--bg-surface-elevated);color:var(--text-primary);">Cancel Edit</button>
+            </div>
           </form>
         </div>
 
         <div style="margin-top:24px;">
-          <h3 style="color:var(--text-primary);font-family:'Outfit',sans-serif;font-size:1.15rem;margin-bottom:14px;">📢 Active Offers</h3>
+          <h3 style="color:var(--text-primary);font-family:'Outfit',sans-serif;font-size:1.15rem;margin-bottom:14px;">📢 Offers</h3>
           <div id="admin-offers-list"></div>
+        </div>
+      </div>
+
+      <!-- Shop Settings Tab -->
+      <div id="settings-tab" class="admin-tab-content" style="padding:24px;display:none;">
+        <div class="admin-form">
+          <h3>🏪 Shop Settings</h3>
+          <p style="color:var(--text-muted);font-size:0.82rem;margin-bottom:16px;">Control whether customers can order and update your contact details.</p>
+          <form id="shop-settings-form">
+            <div class="form-group" style="display:flex;align-items:center;gap:12px;">
+              <input type="checkbox" id="settings-shop-open" style="width:22px;height:22px;cursor:pointer;">
+              <label for="settings-shop-open" style="cursor:pointer;font-weight:700;">Shop is open and accepting orders</label>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Shop Phone</label>
+                <input type="tel" id="settings-shop-phone" class="form-input">
+              </div>
+              <div class="form-group">
+                <label>WhatsApp Order Phone</label>
+                <input type="tel" id="settings-order-phone" class="form-input">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Shop Address</label>
+              <input type="text" id="settings-shop-address" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Announcement (optional)</label>
+              <input type="text" id="settings-shop-message" class="form-input" placeholder="e.g., Closed today for maintenance">
+            </div>
+            <button type="submit" id="save-shop-settings-btn" class="admin-submit-btn">Save Shop Settings</button>
+          </form>
         </div>
       </div>
 

@@ -2,6 +2,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const mongoose = require('mongoose');
 const Product = require('./models/Product');
+const Offer = require('./models/Offer');
 
 const demoProducts = [
   { name: 'Full Chicken', nameTelugu: 'పూర్తి కోడి', category: 'whole', pricePerKg: 220, unit: 'kg', image: '/images/full_chicken.svg', description: 'Fresh whole chicken with skin. Best for curries.', descriptionTelugu: 'తాజా పూర్తి కోడి. కర్రీలకు అనుకూలం.', inStock: true, displayOrder: 1 },
@@ -18,6 +19,53 @@ const demoProducts = [
   { name: 'Chicken Heart', nameTelugu: 'కోడి గుండె', category: 'heart', pricePerKg: 110, unit: 'kg', image: '/images/liver.svg', description: 'Fresh chicken heart.', descriptionTelugu: 'తాజా కోడి గుండె.', inStock: true, displayOrder: 12 }
 ];
 
+const defaultOffers = [
+  {
+    template: 'dussehra',
+    discount: '15% OFF',
+    text: 'Dussehra Special on all fresh chicken cuts',
+    textTelugu: 'దసరా స్పెషల్ — అన్ని తాజా చికెన్ కట్స్‌పై',
+    description: 'Celebrate Vijayadashami with farm-fresh hygienic chicken.',
+    descriptionTelugu: 'విజయదశమి సందర్భంగా తాజా హైజీనిక్ చికెన్.',
+    emoji: '🏹',
+    active: true,
+    displayOrder: 1
+  },
+  {
+    template: 'diwali',
+    discount: '₹50 OFF',
+    text: 'Diwali / Deepavali lights offer on 2kg+ orders',
+    textTelugu: 'దీపావళి ఆఫర్ — 2 కిలోల పైన ఆర్డర్లకు',
+    description: 'Festive packing and extra savings this Deepavali.',
+    descriptionTelugu: 'ఈ దీపావళికి పండుగ ప్యాకింగ్ మరియు ఎక్కువ ఆదా.',
+    emoji: '🪔',
+    active: true,
+    displayOrder: 2
+  },
+  {
+    template: 'ugadi',
+    discount: '10% OFF',
+    text: 'Ugadi New Year freshness deal',
+    textTelugu: 'ఉగాది నూతన సంవత్సరం తాజా చికెన్ డీల్',
+    description: 'Start the Telugu new year with pure farm-fresh cuts.',
+    descriptionTelugu: 'తెలుగు నూతన సంవత్సరాన్ని తాజా కట్స్‌తో ప్రారంభించండి.',
+    emoji: '🌼',
+    active: true,
+    displayOrder: 3
+  },
+  {
+    template: 'sankranti',
+    discount: '₹20/kg',
+    text: 'Sankranti harvest special — bulk orders save more',
+    textTelugu: 'సంక్రాంతి స్పెషల్ — బల్క్ ఆర్డర్లకు ఎక్కువ ఆదా',
+    description: 'Weekend & festival bulk chicken at harvest rates.',
+    descriptionTelugu: 'పండుగ మరియు వారాంతం బల్క్ ఆర్డర్లకు ప్రత్యేక ధర.',
+    emoji: '🪁',
+    active: true,
+    displayOrder: 4
+  }
+];
+
 async function seedProducts() {
   const result = await Product.bulkWrite(demoProducts.map(product => ({
     updateOne: {
@@ -27,6 +75,18 @@ async function seedProducts() {
     }
   })));
   console.log(`Seeded ${result.upsertedCount} missing products; existing products were preserved.`);
+  return result;
+}
+
+async function seedOffers() {
+  const result = await Offer.bulkWrite(defaultOffers.map(offer => ({
+    updateOne: {
+      filter: { text: offer.text },
+      update: { $setOnInsert: offer },
+      upsert: true
+    }
+  })));
+  console.log(`Seeded ${result.upsertedCount} missing offers; existing offers were preserved.`);
   return result;
 }
 
@@ -47,6 +107,9 @@ if (require.main === module) {
       console.log('Seeding products...');
       await seedProducts();
 
+      console.log('Seeding offers...');
+      await seedOffers();
+
       await mongoose.disconnect();
       console.log('✅ Disconnected from MongoDB. Seeding finished.');
       process.exit(0);
@@ -60,4 +123,4 @@ if (require.main === module) {
   })();
 }
 
-module.exports = { seedProducts };
+module.exports = { seedProducts, seedOffers };

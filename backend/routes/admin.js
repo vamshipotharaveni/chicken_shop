@@ -40,7 +40,7 @@ router.get('/settings', async (req, res) => {
     }
     res.json(localSettings);
   } catch (e) {
-    res.json(localSettings);
+    res.status(500).json({ error: `Database read failed: ${e.message}` });
   }
 });
 
@@ -49,14 +49,23 @@ router.put('/settings', verifyAdmin, requireDatabaseForVercel, async (req, res) 
   try {
     const { shopOpen, shopPhone, orderPhone, shopAddress, shopMessage } = req.body;
 
+    if (shopOpen !== undefined && typeof shopOpen !== 'boolean') {
+      return res.status(400).json({ error: 'Shop status must be true or false.' });
+    }
+    for (const [field, value] of Object.entries({ shopPhone, orderPhone, shopAddress, shopMessage })) {
+      if (value !== undefined && typeof value !== 'string') {
+        return res.status(400).json({ error: `${field} must be text.` });
+      }
+    }
+
     if (isDbConnected()) {
       try {
         let settings = await Settings.findOne();
         if (!settings) settings = new Settings();
         if (shopOpen !== undefined) settings.shopOpen = shopOpen;
-        if (shopPhone) settings.shopPhone = shopPhone;
-        if (orderPhone) settings.orderPhone = orderPhone;
-        if (shopAddress) settings.shopAddress = shopAddress;
+        if (shopPhone !== undefined) settings.shopPhone = shopPhone.trim();
+        if (orderPhone !== undefined) settings.orderPhone = orderPhone.trim();
+        if (shopAddress !== undefined) settings.shopAddress = shopAddress.trim();
         if (shopMessage !== undefined) settings.shopMessage = shopMessage;
         await settings.save();
         return res.json(settings);
@@ -67,9 +76,9 @@ router.put('/settings', verifyAdmin, requireDatabaseForVercel, async (req, res) 
 
     // In-memory fallback
     if (shopOpen !== undefined) localSettings.shopOpen = shopOpen;
-    if (shopPhone) localSettings.shopPhone = shopPhone;
-    if (orderPhone) localSettings.orderPhone = orderPhone;
-    if (shopAddress) localSettings.shopAddress = shopAddress;
+    if (shopPhone !== undefined) localSettings.shopPhone = shopPhone.trim();
+    if (orderPhone !== undefined) localSettings.orderPhone = orderPhone.trim();
+    if (shopAddress !== undefined) localSettings.shopAddress = shopAddress.trim();
     if (shopMessage !== undefined) localSettings.shopMessage = shopMessage;
     res.json(localSettings);
   } catch (e) {
