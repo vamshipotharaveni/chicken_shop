@@ -254,6 +254,8 @@ async function init() {
   applyTheme(currentTheme);
 
   // Product and offer data must come from the database, never from demo or stale browser data.
+  localStorage.removeItem('jc_products_cache');
+  localStorage.removeItem('jc_offers_cache');
   const cachedSettings = localStorage.getItem(CACHED_SETTINGS_KEY);
   if (cachedSettings) {
     try { shopSettings = { ...shopSettings, ...JSON.parse(cachedSettings) }; } catch(e) {}
