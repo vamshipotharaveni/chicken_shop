@@ -243,7 +243,7 @@ const floatingCartCount = $('#floating-cart-count');
 const floatingCartItemsText = $('#floating-cart-items-text');
 const floatingCartTotal = $('#floating-cart-total');
 
-// ── Initialization (FAST – renders instantly) ─────────
+// ── Initialization ────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   init();
 });
@@ -266,10 +266,7 @@ async function init() {
   renderStorefrontOffers();
   updateContactUI();
 
-  // Step 2: HIDE LOADING INSTANTLY (page already has content)
-  hideLoading();
-
-  // Step 3: Bind all events and init UI components immediately
+  // Bind events and initialize UI components before loading database content.
   bindEvents();
   if (isAdminRoute) openAdmin();
   initHeroCanvas();
@@ -278,23 +275,42 @@ async function init() {
   initFloatingNavbar();
   initOffersCarousel();
 
-  // Step 4: BACKGROUND REFRESH from API (non-blocking, with fast timeout)
-  refreshFromAPI();
+  // Wait for the first database response so a fresh visit does not require a reload.
+  await refreshFromAPI();
+  hideLoading();
 }
 
 async function refreshFromAPI() {
-  const FAST_TIMEOUT = 3000; // 3s max wait for API
+  const API_TIMEOUT = 5000;
+  const MAX_ATTEMPTS = 3;
 
-  const fetchWithTimeout = (url, opts = {}, timeout = FAST_TIMEOUT) => {
-    return Promise.race([
-      fetch(API_BASE + url, { headers: { 'Content-Type': 'application/json', ...opts.headers }, ...opts }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeout))
-    ]);
+  const fetchWithRetry = async (url, opts = {}) => {
+    let lastError;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
+        const response = await fetch(API_BASE + url, {
+          headers: { 'Content-Type': 'application/json', ...opts.headers },
+          ...opts,
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        if (response.status >= 500 && attempt < MAX_ATTEMPTS) {
+          await new Promise(resolve => setTimeout(resolve, 750));
+          continue;
+        }
+        return response;
+      } catch (error) {
+        lastError = error;
+        if (attempt < MAX_ATTEMPTS) await new Promise(resolve => setTimeout(resolve, 750));
+      }
+    }
+    throw lastError || new Error('The server did not respond.');
   };
 
-  // Refresh products in background
   try {
-    const res = await fetchWithTimeout('/api/products');
+    const res = await fetchWithRetry('/api/products');
     if (!res.ok) throw new Error(await getApiError(res, 'Could not load products'));
     const data = await res.json();
     if (!Array.isArray(data)) throw new Error('Invalid product data received from the server.');
@@ -310,7 +326,7 @@ async function refreshFromAPI() {
 
   // Refresh settings in background
   try {
-    const res = await fetchWithTimeout('/api/admin/settings');
+    const res = await fetchWithRetry('/api/admin/settings');
     const data = await res.json();
     shopSettings = { ...shopSettings, ...data };
     localStorage.setItem(CACHED_SETTINGS_KEY, JSON.stringify(data));
@@ -320,7 +336,7 @@ async function refreshFromAPI() {
   } catch(e) { /* Using defaults – no problem */ }
 
   try {
-    const res = await fetchWithTimeout('/api/offers');
+    const res = await fetchWithRetry('/api/offers');
     if (!res.ok) throw new Error(await getApiError(res, 'Could not load offers'));
     const data = await res.json();
     if (Array.isArray(data)) {
