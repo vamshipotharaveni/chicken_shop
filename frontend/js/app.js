@@ -756,6 +756,8 @@ function renderProducts() {
       : (p.inStock ? t.add_to_cart : t.out_of_stock_btn);
 
     const unitText = currentLang === 'te' ? (p.unit === 'kg' ? 'కిలో' : 'పీస్') : p.unit;
+    const displayedQuantity = defaultQty;
+    const displayedPrice = p.pricePerKg * displayedQuantity;
 
     return `
       <div class="product-card ${!p.inStock ? 'out-of-stock' : ''} ${isShopClosed ? 'shop-closed-card' : ''}" data-id="${escapeHtml(p._id)}" onclick="buyNow('${escapeHtml(p._id)}')">
@@ -768,14 +770,14 @@ function renderProducts() {
           <p class="product-description">${escapeHtml(productDesc)}</p>
           <div class="price-tag">
             <span class="price-symbol">₹</span>
-            <span class="price-amount">${escapeHtml(p.pricePerKg)}</span>
-            <span class="price-unit">/ ${escapeHtml(unitText)}</span>
+            <span class="price-amount" id="price-${escapeHtml(p._id)}">${displayedPrice.toFixed(0)}</span>
+            <span class="price-unit">/ <span id="price-qty-${escapeHtml(p._id)}">${displayedQuantity}</span> ${escapeHtml(unitText)}</span>
           </div>
           <div class="quantity-control" onclick="event.stopPropagation()">
             <button class="qty-btn" onclick="event.stopPropagation(); changeQty('${escapeHtml(p._id)}', -${step})" ${isDisabled ? 'disabled' : ''} aria-label="Decrease quantity">
               <i class="fas fa-minus"></i>
             </button>
-            <input type="number" class="qty-input" id="qty-${escapeHtml(p._id)}" value="${defaultQty}" min="${minQty}" step="${step}" ${isDisabled ? 'disabled' : ''} aria-label="Quantity">
+            <input type="number" class="qty-input" id="qty-${escapeHtml(p._id)}" value="${defaultQty}" min="${minQty}" step="${step}" ${isDisabled ? 'disabled' : ''} aria-label="Quantity" oninput="updateProductCardPrice('${escapeHtml(p._id)}', this.value)">
             <button class="qty-btn" onclick="event.stopPropagation(); changeQty('${escapeHtml(p._id)}', ${step})" ${isDisabled ? 'disabled' : ''} aria-label="Increase quantity">
               <i class="fas fa-plus"></i>
             </button>
@@ -803,6 +805,18 @@ function changeQty(id, delta) {
   let val = parseFloat(input.value) + delta;
   val = Math.max(minQty, Math.round(val * 100) / 100);
   input.value = val;
+  updateProductCardPrice(id, val);
+}
+
+function updateProductCardPrice(id, value) {
+  const product = allProducts.find(item => item._id === id);
+  if (!product) return;
+  const quantity = Number.parseFloat(value);
+  if (!Number.isFinite(quantity) || quantity <= 0) return;
+  const price = document.getElementById('price-' + id);
+  const quantityLabel = document.getElementById('price-qty-' + id);
+  if (price) price.textContent = (product.pricePerKg * quantity).toFixed(0);
+  if (quantityLabel) quantityLabel.textContent = quantity;
 }
 
 // ── Cart Management ───────────────────────────────────
@@ -930,7 +944,7 @@ function updateCartUI() {
         <div class="cart-item" data-id="${escapeHtml(item.productId)}">
           <div class="cart-item-info">
             <div class="cart-item-name ${currentLang === 'te' ? 'telugu-font' : ''}">${escapeHtml(displayName)}</div>
-            <div class="cart-item-meta">${escapeHtml(item.quantity)} ${escapeHtml(unitText)} × ₹${escapeHtml(item.pricePerKg)}/${escapeHtml(unitText)}</div>
+            <div class="cart-item-meta">${escapeHtml(item.quantity)} ${escapeHtml(unitText)} · ₹${escapeHtml(item.subtotal.toFixed(0))}</div>
           </div>
           <div class="cart-item-actions">
             <button class="qty-btn" onclick="updateCartItemQty('${escapeHtml(item.productId)}', -${step(item.unit)})" aria-label="Reduce"><i class="fas fa-minus"></i></button>
@@ -1076,7 +1090,7 @@ async function placeOrder() {
 
   cart.forEach((item, i) => {
     msg += `${i + 1}. *${item.name}* ${item.nameTelugu ? `(${item.nameTelugu})` : ''}\n`;
-    msg += `   ${item.quantity} ${item.unit} × ₹${item.pricePerKg} = *₹${item.subtotal.toFixed(0)}*\n`;
+    msg += `   ${item.quantity} ${item.unit} = *₹${item.subtotal.toFixed(0)}*\n`;
   });
 
   msg += `━━━━━━━━━━━━━━━━━━━━\n`;
