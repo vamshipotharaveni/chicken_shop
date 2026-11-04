@@ -112,8 +112,8 @@ const TRANSLATIONS = {
     phone_placeholder: 'e.g., 9876543210',
     label_address: 'Delivery Location *',
     address_placeholder: 'House/Flat No, Landmark, Area, Street (required)',
-    detect_btn: 'Detect Live GPS Location',
-    detecting_btn: 'Detecting GPS...',
+    detect_btn: 'Use My Current Location',
+    detecting_btn: 'Getting Current Location...',
     total_amount: 'Total Amount:',
     order_whatsapp: 'Continue on WhatsApp',
     clear_cart: 'Clear Cart',
@@ -130,7 +130,7 @@ const TRANSLATIONS = {
     trust_3_title: 'Strict Hygiene',
     trust_3_desc: 'Thoroughly washed, pre-cleaned, and packed in food-grade sanitised containers.',
     trust_4_title: 'Express Delivery',
-    trust_4_desc: 'Order through WhatsApp with live GPS location detection and get doorstep delivery.',
+    trust_4_desc: 'Order through WhatsApp with your current location and get doorstep delivery.',
     reviews_title: 'Customer Reviews',
     bulk_title: '🎉 Planning a Party, Wedding or Event?',
     bulk_subtitle: 'Order fresh chicken in bulk at exclusive discounted rates with complimentary delivery.',
@@ -170,8 +170,8 @@ const TRANSLATIONS = {
     phone_placeholder: 'ఉదా: 9876543210',
     label_address: 'డెలివరీ లొకేషన్ *',
     address_placeholder: 'ఇంటి నంబర్, ల్యాండ్‌మార్క్, వీధి పేరు (తప్పనిసరి)',
-    detect_btn: 'లైవ్ GPS లొకేషన్ గుర్తించండి',
-    detecting_btn: 'GPS గుర్తిస్తోంది...',
+    detect_btn: 'నా ప్రస్తుత లొకేషన్ ఉపయోగించండి',
+    detecting_btn: 'ప్రస్తుత లొకేషన్ పొందుతోంది...',
     total_amount: 'మొత్తం ధర:',
     order_whatsapp: 'వాట్సాప్‌లో కొనసాగించండి',
     clear_cart: 'కార్ట్ క్లియర్ చేయండి',
@@ -1015,11 +1015,11 @@ function detectLocation() {
       updateCartUI();
     },
     (err) => {
-      showToast(currentLang === 'te' ? 'లొకేషన్ గుర్తించలేకపోయాము. దయచేసి టైప్ చేయండి.' : 'Could not detect GPS location. Please enter manually.', 'error');
+      showToast(currentLang === 'te' ? 'లొకేషన్ పొందలేకపోయాము. దయచేసి టైప్ చేయండి.' : 'Could not get your current location. Please enter it manually.', 'error');
       btn.innerHTML = `<i class="fas fa-location-crosshairs"></i> <span>${t.detect_btn}</span>`;
       btn.disabled = false;
     },
-    { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
   );
 }
 
@@ -1048,7 +1048,7 @@ async function placeOrder() {
     return;
   }
   if (!address) {
-    showToast(currentLang === 'te' ? 'దయచేసి డెలివరీ లొకేషన్ నమోదు చేయండి లేదా GPS గుర్తించండి' : 'Delivery location is required. Enter your address or detect GPS.', 'error');
+    showToast(currentLang === 'te' ? 'దయచేసి డెలివరీ లొకేషన్ నమోదు చేయండి లేదా ప్రస్తుత లొకేషన్ ఉపయోగించండి' : 'Delivery location is required. Enter your address or use your current location.', 'error');
     $('#customer-address').focus();
     return;
   }
@@ -1108,18 +1108,30 @@ async function placeOrder() {
 
   msg += `🙏 Please confirm delivery time!`;
 
-  // Save order to backend / in-memory store
+  // Open WhatsApp before the database request so a slow/offline database cannot
+  // block the actual order handoff (and so popup blockers see a direct click).
+  const whatsappNumber = toWaNumber(getOrderPhone());
+  const waURL = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`;
+  const whatsappWindow = window.open(waURL, '_blank');
+  if (!whatsappWindow) {
+    window.location.assign(waURL);
+  } else {
+    whatsappWindow.opener = null;
+  }
+
+  // Persist the order as a secondary operation. WhatsApp remains the order
+  // channel even when the database is temporarily unavailable.
+  const orderData = {
+    customerName: name,
+    customerPhone: phone,
+    deliveryAddress: address,
+    coordinates: currentCoords,
+    items: cart,
+    specifications: specs,
+    notes: notes,
+    totalAmount: total
+  };
   try {
-    const orderData = {
-      customerName: name,
-      customerPhone: phone,
-      deliveryAddress: address,
-      coordinates: currentCoords,
-      items: cart,
-      specifications: specs,
-      notes: notes,
-      totalAmount: total
-    };
     const res = await fetch(API_BASE + '/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1127,14 +1139,14 @@ async function placeOrder() {
     });
     if (!res.ok) throw new Error(await getApiError(res, 'Could not save your order'));
   } catch (e) {
-    showToast(e.message || 'Could not save your order. Please try again.', 'error');
-    return;
+    console.error('Order handoff was sent to WhatsApp, but database save failed:', e);
+    showToast(
+      currentLang === 'te'
+        ? 'వాట్సాప్ తెరవబడింది. ఆర్డర్ రికార్డ్ సేవ్ కాలేదు.'
+        : 'WhatsApp was opened, but the order could not be saved to the database.',
+      'info'
+    );
   }
-
-  // Open WhatsApp only — clicking this is NOT an order confirmation
-  const whatsappNumber = toWaNumber(getOrderPhone());
-  const waURL = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(msg)}`;
-  window.open(waURL, '_blank');
 }
 
 function hasRequiredDeliveryLocation() {
